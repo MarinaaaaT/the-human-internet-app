@@ -11,6 +11,9 @@ struct SettingsView: View {
     @State private var showPrivacySheet = false
     @State private var showVerificationInfo = false
     @State private var showEditUsername = false
+    @State private var showSignOutConfirmation = false
+    @State private var signOutErrorMessage: String?
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -28,6 +31,23 @@ struct SettingsView: View {
                     settingsRow(title: "Verification Status", value: statusLabel, valueColor: statusColor, icon: "info.circle") {
                         showVerificationInfo = true
                     }
+                    Divider().overlay(Color.white.opacity(0.08))
+
+                    Button {
+                        showSignOutConfirmation = true
+                    } label: {
+                        HStack {
+                            Text("Log Out")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.red)
+                            Spacer()
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .foregroundStyle(.red)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                    }
+
                     Spacer()
                 }
                 .padding(.top, 8)
@@ -46,6 +66,32 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showEditUsername) {
             EditUsernameSheet()
+        }
+        .confirmationDialog("Log out of the human network?", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
+            Button("Log Out", role: .destructive) {
+                signOut()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert(
+            "Couldn't log out",
+            isPresented: Binding(get: { signOutErrorMessage != nil }, set: { if !$0 { signOutErrorMessage = nil } })
+        ) {
+            Button("OK") { signOutErrorMessage = nil }
+        } message: {
+            Text(signOutErrorMessage ?? "Please try again.")
+        }
+    }
+
+    private func signOut() {
+        Task {
+            do {
+                try await appState.signOut()
+                dismiss()
+            } catch {
+                signOutErrorMessage = "Please try again."
+                debugPrint(error)
+            }
         }
     }
 

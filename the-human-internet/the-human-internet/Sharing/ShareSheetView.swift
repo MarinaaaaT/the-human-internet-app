@@ -69,6 +69,6 @@ struct ShareSheetView: View {
 
 #Preview {
     Color.clear.sheet(isPresented: .constant(true)) {
-        ShareSheetView(photo: VerifiedPhoto(symbol: "pawprint.fill", tint: Theme.accentPink, privacy: .public_, capturedAt: .now))
+        ShareSheetView(photo: VerifiedPhoto(id: UUID(), userID: UUID(), storagePath: "preview/example.jpg", capturedAt: .now))
     }
 }

@@ -16,14 +16,9 @@ struct PhotoDetailView: View {
             Theme.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 ZStack(alignment: .topTrailing) {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(photo.tint.opacity(0.18))
-                    Image(systemName: photo.symbol)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 110, height: 110)
-                        .foregroundStyle(photo.tint)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    RemotePhotoImage(storagePath: photo.storagePath, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
                     BrandMark(size: 28)
                         .padding(16)
                 }
@@ -53,6 +48,6 @@ struct PhotoDetailView: View {
 
 #Preview {
     NavigationStack {
-        PhotoDetailView(photo: VerifiedPhoto(symbol: "pawprint.fill", tint: Theme.accentPink, privacy: .public_, capturedAt: .now))
+        PhotoDetailView(photo: VerifiedPhoto(id: UUID(), userID: UUID(), storagePath: "preview/example.jpg", capturedAt: .now))
     }
 }

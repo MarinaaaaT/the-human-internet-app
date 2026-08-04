@@ -25,6 +25,15 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onOpenURL { url in
+            handle(url: url)
+        }
+        .fullScreenCover(item: Binding(
+            get: { appState.deepLinkedPhoto },
+            set: { appState.deepLinkedPhoto = $0 }
+        )) { deepLink in
+            PhotoVerificationView(photoID: deepLink.id)
+        }
         .task {
             // Supabase persists the session (Keychain-backed) across launches on its own.
             // `.initialSession` fires once, right after the client attempts to restore it.
@@ -38,14 +47,23 @@ struct RootView: View {
         }
     }
 
+    /// Parses `thehumaninternet://photo/{id}`. Will swap to a Universal Link
+    /// (`https://the-human-internet.com/{id}`) once the website hosts an
+    /// apple-app-site-association file — this parsing/presentation logic stays
+    /// the same either way.
+    private func handle(url: URL) {
+        guard url.scheme == "thehumaninternet", url.host == "photo" else { return }
+        guard let id = UUID(uuidString: url.lastPathComponent) else { return }
+        appState.deepLinkedPhoto = DeepLinkedPhoto(id: id)
+    }
+
     /// A restored session only proves the identity is authenticated — it doesn't say
-    /// whether onboarding was ever finished. Fetch (or create) their `users` row so
-    /// `isOnboarded` and any previously-entered fields reflect reality, not a fresh default.
+    /// whether onboarding was ever finished. Hydrate their `users` row (and photos)
+    /// so `isOnboarded` and any previously-entered fields reflect reality, not a
+    /// fresh default.
     private func resolveProfile(userID: UUID) async {
         do {
-            let profile = try await UserProfileRepository.resolveOrCreate(userID: userID)
-            appState.user = profile
-            appState.isOnboarded = profile.onboardingStep == .completed
+            try await appState.hydrate(userID: userID)
         } catch {
             debugPrint(error)
             appState.user = HumanUser(id: userID)

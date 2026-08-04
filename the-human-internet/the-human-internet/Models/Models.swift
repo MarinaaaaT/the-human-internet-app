@@ -3,7 +3,7 @@
 //  the-human-internet
 //
 
-import SwiftUI
+import Foundation
 
 enum PrivacyLevel: String, CaseIterable, Identifiable, Codable, Hashable {
     case public_ = "Public"
@@ -50,17 +50,29 @@ struct HumanUser: Codable, Hashable {
     }
 }
 
-struct VerifiedPhoto: Identifiable, Hashable {
-    let id = UUID()
-    var symbol: String
-    var tint: Color
-    var privacy: PrivacyLevel
+/// Maps 1:1 to a row in the `photos` table. No privacy field here — per the
+/// product spec, signed-in app users see full contents for both Public and
+/// Humans Only photos, so visibility only matters on the (separate,
+/// signed-out) web verification page, which would join to the owner's
+/// `users.privacy` rather than duplicating it per-photo.
+struct VerifiedPhoto: Identifiable, Codable, Hashable {
+    var id: UUID
+    var userID: UUID
+    var storagePath: String
     var capturedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userID = "user_id"
+        case storagePath = "storage_path"
+        case capturedAt = "captured_at"
+    }
 
     var verificationLink: String {
         "the-human-internet.com/\(id.uuidString.prefix(8).lowercased())"
     }
 
-    static func == (lhs: VerifiedPhoto, rhs: VerifiedPhoto) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    var deepLinkURL: URL {
+        URL(string: "thehumaninternet://photo/\(id.uuidString)")!
+    }
 }

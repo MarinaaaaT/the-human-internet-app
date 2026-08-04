@@ -20,9 +20,13 @@ struct OnboardingFlowView: View {
                     do {
                         try await authService.handle(result)
                         let userID = try await supabase.auth.session.user.id
-                        let profile = try await UserProfileRepository.resolveOrCreate(userID: userID)
-                        appState.user = profile
-                        path = Self.resumePath(for: profile)
+                        try await appState.hydrate(userID: userID)
+                        // A returning, already-onboarded user: `appState.isOnboarded`
+                        // is now true, so RootView swaps straight to MainTabView —
+                        // no need to push anything here.
+                        if !appState.isOnboarded {
+                            path = Self.resumePath(for: appState.user)
+                        }
                     } catch {
                         authErrorMessage = error.localizedDescription
                     }
@@ -93,6 +97,9 @@ struct OnboardingFlowView: View {
         }
     }
 
+    /// Only called for users who aren't fully onboarded — `appState.hydrate`
+    /// already routes a `.completed` user straight to MainTabView before this
+    /// runs. `.completed` is handled below only as a defensive fallback.
     private static func resumePath(for user: HumanUser) -> [OnboardingStep] {
         guard user.id != nil else { return [] }
         switch user.onboardingStep {

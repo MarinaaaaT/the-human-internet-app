@@ -4,13 +4,13 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct CameraCaptureView: View {
     @Environment(AppState.self) private var appState
     @State private var showCongrats = false
-    @State private var navigateToPhoto: VerifiedPhoto?
-
-    private let placeholderSymbols = ["pawprint.fill", "camera.fill", "sun.max.fill", "leaf.fill", "figure.walk"]
+    @State private var isUploading = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ZStack {
@@ -47,7 +47,13 @@ struct CameraCaptureView: View {
                             .fill(Color.white)
                             .frame(width: 72, height: 72)
                             .overlay(Circle().stroke(Color.black.opacity(0.15), lineWidth: 4).padding(4))
+                            .overlay {
+                                if isUploading {
+                                    ProgressView().tint(Theme.background)
+                                }
+                            }
                     }
+                    .disabled(isUploading)
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 24)
@@ -59,16 +65,45 @@ struct CameraCaptureView: View {
         .sheet(isPresented: $showCongrats) {
             CongratsSheetView()
         }
+        .alert(
+            "Couldn't upload photo",
+            isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
+        ) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "Please try again.")
+        }
     }
 
+    /// Stand-in for real camera capture until AVFoundation + C2PA integration
+    /// replaces this. Deliberately uploads a single bundled asset rather than
+    /// anything from the photo library — importing existing images would break
+    /// the "taken live by a human" guarantee this whole feature exists for.
     private func capture() {
-        let symbol = placeholderSymbols.randomElement() ?? "pawprint.fill"
-        let photo = VerifiedPhoto(symbol: symbol, tint: Theme.accentPink, privacy: appState.user.privacy, capturedAt: .now)
-        appState.photos.insert(photo, at: 0)
+        guard let userID = appState.user.id else { return }
+        guard let data = UIImage(named: "CaptureStandIn")?.jpegData(compressionQuality: 0.9) else {
+            errorMessage = "Missing stand-in capture asset."
+            return
+        }
+        isUploading = true
 
-        if !appState.hasSeenFirstPhotoCongrats {
-            appState.hasSeenFirstPhotoCongrats = true
-            showCongrats = true
+        Task {
+            defer { isUploading = false }
+            do {
+                // `appState.photos` is hydrated from the DB on launch, so this
+                // reflects whether they've ever posted before — not just whether
+                // they've seen the modal this session.
+                let isFirstPhoto = appState.photos.isEmpty
+                let photo = try await PhotoRepository.upload(imageData: data, userID: userID)
+                appState.photos.insert(photo, at: 0)
+
+                if isFirstPhoto {
+                    showCongrats = true
+                }
+            } catch {
+                errorMessage = "Please try again."
+                debugPrint(error)
+            }
         }
     }
 }
