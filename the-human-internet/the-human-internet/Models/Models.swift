@@ -72,9 +72,22 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
         case verificationDeepLink = "verification_deep_link"
     }
 
-    /// The full id, not a prefix — this doubles as the lookup key the web
+    /// Host of the public web verification page. Must stay in step with the
+    /// website's `/[photoId]` route.
+    private static let webHost = "the-human-internet.com"
+
+    /// Display form, without a scheme — shown in the share sheet. Uses the
+    /// full id, not a prefix: it doubles as the lookup key the web
     /// verification page queries by, so it must be collision-free.
     var verificationLink: String {
-        "the-human-internet.com/\(id.uuidString.lowercased())"
+        "\(Self.webHost)/\(id.uuidString.lowercased())"
+    }
+
+    /// The link to actually share. Carries the scheme so it's tappable
+    /// wherever it's pasted, unlike the bare `verificationLink` display form.
+    ///
+    /// Can't fail to construct: the host is a literal and the path is a UUID.
+    var verificationURL: URL {
+        URL(string: "https://\(verificationLink)")!
     }
 }
