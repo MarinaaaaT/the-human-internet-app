@@ -60,19 +60,21 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
     var userID: UUID
     var storagePath: String
     var capturedAt: Date
+    /// `thehumaninternet://photo/{id}`, generated once at upload time and
+    /// persisted rather than recomputed — see PhotoRepository.upload.
+    var verificationDeepLink: String
 
     enum CodingKeys: String, CodingKey {
         case id
         case userID = "user_id"
         case storagePath = "storage_path"
         case capturedAt = "captured_at"
+        case verificationDeepLink = "verification_deep_link"
     }
 
+    /// The full id, not a prefix — this doubles as the lookup key the web
+    /// verification page queries by, so it must be collision-free.
     var verificationLink: String {
-        "the-human-internet.com/\(id.uuidString.prefix(8).lowercased())"
-    }
-
-    var deepLinkURL: URL {
-        URL(string: "thehumaninternet://photo/\(id.uuidString)")!
+        "the-human-internet.com/\(id.uuidString.lowercased())"
     }
 }

@@ -20,7 +20,15 @@ enum PhotoRepository {
             .from("photos")
             .upload(path, data: imageData, options: FileOptions(contentType: "image/jpeg"))
 
-        let photo = VerifiedPhoto(id: photoID, userID: userID, storagePath: path, capturedAt: .now)
+        let photo = VerifiedPhoto(
+            id: photoID,
+            userID: userID,
+            storagePath: path,
+            capturedAt: .now,
+            // Lowercased for the same reason as the storage path above —
+            // consistency with Postgres's canonical uuid text rendering.
+            verificationDeepLink: "thehumaninternet://photo/\(photoID.uuidString.lowercased())"
+        )
         try await supabase
             .from("photos")
             .insert(photo)
