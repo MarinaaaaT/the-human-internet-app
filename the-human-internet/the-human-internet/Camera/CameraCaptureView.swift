@@ -8,6 +8,7 @@ import UIKit
 
 struct CameraCaptureView: View {
     @Environment(AppState.self) private var appState
+    @State private var cameraSession = CameraSession()
     @State private var showCongrats = false
     @State private var isUploading = false
     @State private var errorMessage: String?
@@ -16,13 +17,63 @@ struct CameraCaptureView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
+            switch cameraSession.authorizationState {
+            case .notDetermined:
+                EmptyView()
+            case .denied:
+                permissionDeniedView
+            case .authorized:
+                if cameraSession.isCameraAvailable {
+                    cameraView
+                } else {
+                    noCameraAvailableView
+                }
+            }
+        }
+        .navigationDestination(for: VerifiedPhoto.self) { photo in
+            PhotoDetailView(photo: photo)
+        }
+        .sheet(isPresented: $showCongrats) {
+            CongratsSheetView()
+        }
+        .alert(
+            "Couldn't upload photo",
+            isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
+        ) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "Please try again.")
+        }
+        .task {
+            await cameraSession.requestAuthorizationIfNeeded()
+            cameraSession.start()
+        }
+        .onDisappear {
+            cameraSession.stop()
+        }
+    }
+
+    private var cameraView: some View {
+        ZStack {
+            CameraPreviewView(session: cameraSession.session)
+                .ignoresSafeArea()
+
             VStack {
-                Spacer()
-                Image(systemName: "viewfinder")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 160, height: 160)
-                    .foregroundStyle(.white.opacity(0.85))
+                HStack {
+                    Spacer()
+                    Button {
+                        cameraSession.flipCamera()
+                    } label: {
+                        Image(systemName: "arrow.triangle.2.circlepath.camera")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(.black.opacity(0.35), in: Circle())
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+
                 Spacer()
 
                 ZStack {
@@ -59,47 +110,75 @@ struct CameraCaptureView: View {
                 .padding(.bottom, 24)
             }
         }
-        .navigationDestination(for: VerifiedPhoto.self) { photo in
-            PhotoDetailView(photo: photo)
-        }
-        .sheet(isPresented: $showCongrats) {
-            CongratsSheetView()
-        }
-        .alert(
-            "Couldn't upload photo",
-            isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
-        ) {
-            Button("OK") { errorMessage = nil }
-        } message: {
-            Text(errorMessage ?? "Please try again.")
-        }
     }
 
-    /// Stand-in for real camera capture until AVFoundation + C2PA integration
-    /// replaces this. Deliberately uploads a single bundled asset rather than
-    /// anything from the photo library — importing existing images would break
-    /// the "taken live by a human" guarantee this whole feature exists for.
+    private var noCameraAvailableView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "camera.metering.unknown")
+                .font(.system(size: 40))
+                .foregroundStyle(Theme.textSecondary)
+            Text("No camera available")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("This device doesn't have a usable camera — the Simulator, for instance, has none. Try a physical iPhone.")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(32)
+    }
+
+    private var permissionDeniedView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(Theme.textSecondary)
+            Text("Camera access is off")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("Turn on camera access in Settings to take a photo.")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Theme.accentBlue)
+            .padding(.top, 4)
+        }
+        .padding(32)
+    }
+
     private func capture() {
         guard let userID = appState.user.id else { return }
-        guard let data = UIImage(named: "CaptureStandIn")?.jpegData(compressionQuality: 0.9) else {
-            errorMessage = "Missing stand-in capture asset."
-            return
-        }
         isUploading = true
 
         Task {
             defer { isUploading = false }
             do {
+                let imageData = try await cameraSession.capturePhoto()
+                // C2PA signing is a synchronous, potentially non-trivial
+                // native call — detached so it doesn't block this task's
+                // (main) actor.
+                let signedData = try await Task.detached(priority: .userInitiated) {
+                    try PhotoSigner.sign(imageData: imageData)
+                }.value
+
                 // `appState.photos` is hydrated from the DB on launch, so this
                 // reflects whether they've ever posted before — not just whether
                 // they've seen the modal this session.
                 let isFirstPhoto = appState.photos.isEmpty
-                let photo = try await PhotoRepository.upload(imageData: data, userID: userID)
+                let photo = try await PhotoRepository.upload(imageData: signedData, userID: userID)
                 appState.photos.insert(photo, at: 0)
 
                 if isFirstPhoto {
                     showCongrats = true
                 }
+            } catch CameraSessionError.noCameraAvailable {
+                errorMessage = "No camera is available on this device."
             } catch {
                 errorMessage = "Please try again."
                 debugPrint(error)

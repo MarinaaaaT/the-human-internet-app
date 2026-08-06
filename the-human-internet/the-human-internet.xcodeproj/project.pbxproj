@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6D184B17BCAF1856217A247E /* C2PA in Frameworks */ = {isa = PBXBuildFile; productRef = CE6E02C557E2169072B3B795 /* C2PA */; };
 		9CBCE53930227350003A9C3F /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53830227350003A9C3F /* Auth */; };
 		9CBCE53B30227350003A9C3F /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53A30227350003A9C3F /* Functions */; };
 		9CBCE53D30227350003A9C3F /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53C30227350003A9C3F /* PostgREST */; };
@@ -67,6 +68,7 @@
 				9CBCE54130227350003A9C3F /* Storage in Frameworks */,
 				9CBCE54330227350003A9C3F /* Supabase in Frameworks */,
 				9CBCE53F30227350003A9C3F /* Realtime in Frameworks */,
+				6D184B17BCAF1856217A247E /* C2PA in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +135,7 @@
 				9CBCE53E30227350003A9C3F /* Realtime */,
 				9CBCE54030227350003A9C3F /* Storage */,
 				9CBCE54230227350003A9C3F /* Supabase */,
+				CE6E02C557E2169072B3B795 /* C2PA */,
 			);
 			productName = "the-human-internet";
 			productReference = 9CBCE4C630222E20003A9C3F /* the-human-internet.app */;
@@ -218,6 +221,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9CBCE53730227350003A9C3F /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				8648428A6B6097F225A1F77B /* XCRemoteSwiftPackageReference "c2pa-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9CBCE4C730222E20003A9C3F /* Products */;
@@ -572,6 +576,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		8648428A6B6097F225A1F77B /* XCRemoteSwiftPackageReference "c2pa-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/contentauth/c2pa-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.1;
+			};
+		};
 		9CBCE53730227350003A9C3F /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -612,6 +624,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9CBCE53730227350003A9C3F /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		CE6E02C557E2169072B3B795 /* C2PA */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8648428A6B6097F225A1F77B /* XCRemoteSwiftPackageReference "c2pa-swift" */;
+			productName = C2PA;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
