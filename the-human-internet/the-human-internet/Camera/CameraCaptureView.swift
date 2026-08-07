@@ -10,7 +10,10 @@ struct CameraCaptureView: View {
     @Environment(AppState.self) private var appState
     @State private var cameraSession = CameraSession()
     @State private var showCongrats = false
-    @State private var isUploading = false
+    /// Covers capture + C2PA signing + the local library save + handing the
+    /// photo to `PhotoUploadQueue` — not the network upload itself, which
+    /// continues in the background so the shutter re-enables immediately.
+    @State private var isCapturing = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -99,12 +102,12 @@ struct CameraCaptureView: View {
                             .frame(width: 72, height: 72)
                             .overlay(Circle().stroke(Color.black.opacity(0.15), lineWidth: 4).padding(4))
                             .overlay {
-                                if isUploading {
+                                if isCapturing {
                                     ProgressView().tint(Theme.background)
                                 }
                             }
                     }
-                    .disabled(isUploading)
+                    .disabled(isCapturing)
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 24)
@@ -154,10 +157,10 @@ struct CameraCaptureView: View {
 
     private func capture() {
         guard let userID = appState.user.id else { return }
-        isUploading = true
+        isCapturing = true
 
         Task {
-            defer { isUploading = false }
+            defer { isCapturing = false }
             do {
                 let imageData = try await cameraSession.capturePhoto()
                 // C2PA signing is a synchronous, potentially non-trivial
@@ -167,11 +170,21 @@ struct CameraCaptureView: View {
                     try PhotoSigner.sign(imageData: imageData)
                 }.value
 
+                // Best-effort and independent of the upload: this is the copy
+                // that survives even if the app is deleted before the upload
+                // finishes. Saved with the raw signed bytes (not a UIImage
+                // round-trip) so the embedded C2PA manifest stays intact.
+                try? await PhotoLibrarySaver.save(imageData: signedData)
+
                 // `appState.photos` is hydrated from the DB on launch, so this
                 // reflects whether they've ever posted before — not just whether
                 // they've seen the modal this session.
                 let isFirstPhoto = appState.photos.isEmpty
-                let photo = try await PhotoRepository.upload(imageData: signedData, userID: userID)
+
+                // Persists to disk and starts the network upload in the
+                // background — this returns as soon as the photo is safely
+                // queued, not once it's actually uploaded.
+                let photo = try PhotoUploadQueue.enqueue(imageData: signedData, userID: userID, appState: appState)
                 appState.photos.insert(photo, at: 0)
 
                 if isFirstPhoto {

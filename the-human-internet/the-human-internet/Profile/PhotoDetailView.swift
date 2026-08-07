@@ -16,7 +16,7 @@ struct PhotoDetailView: View {
             Theme.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 ZStack(alignment: .topTrailing) {
-                    RemotePhotoImage(storagePath: photo.storagePath, contentMode: .fit)
+                    RemotePhotoImage(photo: photo, contentMode: .fit)
                         .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                     BrandMark(size: 28)

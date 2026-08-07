@@ -10,7 +10,7 @@ import UIKit
 /// Shared by every view that displays a stored photo (thumbnails, detail,
 /// verification) so the download/placeholder/failure states live in one place.
 struct RemotePhotoImage: View {
-    let storagePath: String
+    let photo: VerifiedPhoto
     var contentMode: ContentMode = .fill
 
     @State private var imageData: Data?
@@ -33,10 +33,19 @@ struct RemotePhotoImage: View {
                 }
             }
         }
-        .task(id: storagePath) {
+        .task(id: photo.storagePath) {
             guard imageData == nil else { return }
+            // A photo that's still uploading (or just resumed after a
+            // force-quit) has no object in Storage yet — fetching it there
+            // would 404 and, since this task only runs once per storagePath,
+            // never retry even after the upload finishes moments later. The
+            // local pending copy has the identical bytes, so prefer it.
+            if let localData = PhotoUploadQueue.localImageData(for: photo.id) {
+                imageData = localData
+                return
+            }
             do {
-                imageData = try await PhotoRepository.downloadImage(path: storagePath)
+                imageData = try await PhotoRepository.downloadImage(path: photo.storagePath)
             } catch {
                 didFail = true
                 debugPrint(error)

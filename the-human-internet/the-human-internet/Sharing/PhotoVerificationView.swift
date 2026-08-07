@@ -94,7 +94,7 @@ struct PhotoVerificationView: View {
             // `.fit` (not `.fill`) — the source images are full-resolution camera
             // photos, and `.fill` scales up to cover, overflowing its bounds and
             // painting over the header above it.
-            RemotePhotoImage(storagePath: photo.storagePath, contentMode: .fit)
+            RemotePhotoImage(photo: photo, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .padding(.horizontal, 20)
