@@ -163,18 +163,25 @@ struct CameraCaptureView: View {
             defer { isCapturing = false }
             do {
                 let imageData = try await cameraSession.capturePhoto()
+
+                // Best-effort and independent of everything below: the
+                // user's own untouched capture — no watermark, no C2PA
+                // manifest, since nobody but them ever sees this copy. It's
+                // the fallback if the upload never finishes.
+                try? await PhotoLibrarySaver.save(imageData: imageData)
+
+                // Burned into the pixels *before* signing, so the C2PA
+                // manifest's hash binding covers the exact bytes that get
+                // uploaded and shared — signing the raw capture and
+                // watermarking afterward would invalidate that binding.
+                let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
+
                 // C2PA signing is a synchronous, potentially non-trivial
                 // native call — detached so it doesn't block this task's
                 // (main) actor.
                 let signedData = try await Task.detached(priority: .userInitiated) {
-                    try PhotoSigner.sign(imageData: imageData)
+                    try PhotoSigner.sign(imageData: watermarkedData)
                 }.value
-
-                // Best-effort and independent of the upload: this is the copy
-                // that survives even if the app is deleted before the upload
-                // finishes. Saved with the raw signed bytes (not a UIImage
-                // round-trip) so the embedded C2PA manifest stays intact.
-                try? await PhotoLibrarySaver.save(imageData: signedData)
 
                 // `appState.photos` is hydrated from the DB on launch, so this
                 // reflects whether they've ever posted before — not just whether

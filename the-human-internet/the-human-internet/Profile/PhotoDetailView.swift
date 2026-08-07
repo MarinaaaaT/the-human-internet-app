@@ -10,6 +10,12 @@ struct PhotoDetailView: View {
 
     @State private var showShareSheet = false
     @State private var showPreviewSheet = false
+    /// Captured when "Continue" is tapped in `PreviewAsSheetView`, then acted
+    /// on once that sheet has actually finished dismissing — presenting a
+    /// new sheet/cover in the same beat as dismissing this one is unreliable.
+    @State private var pendingPreviewAudience: PreviewAudience?
+    @State private var showAppPreview = false
+    @State private var showWebPreview = false
 
     var body: some View {
         ZStack {
@@ -40,8 +46,32 @@ struct PhotoDetailView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(photo: photo)
         }
-        .sheet(isPresented: $showPreviewSheet) {
-            PreviewAsSheetView()
+        .sheet(isPresented: $showPreviewSheet, onDismiss: {
+            switch pendingPreviewAudience {
+            case .fellowHuman:
+                showAppPreview = true
+            case .unknownLurker:
+                showWebPreview = true
+            case nil:
+                break
+            }
+            pendingPreviewAudience = nil
+        }) {
+            PreviewAsSheetView { audience in
+                pendingPreviewAudience = audience
+                showPreviewSheet = false
+            }
+        }
+        // The exact same view a `thehumaninternet://photo/{id}` link opens —
+        // what any other signed-in app user would see.
+        .fullScreenCover(isPresented: $showAppPreview) {
+            PhotoVerificationView(photoID: photo.id)
+        }
+        // The real, live public page — the website's own server-side privacy
+        // check (Public vs. Humans Only) applies exactly as it would for any
+        // other signed-out visitor.
+        .sheet(isPresented: $showWebPreview) {
+            WebPreviewView(url: photo.verificationURL)
         }
     }
 }

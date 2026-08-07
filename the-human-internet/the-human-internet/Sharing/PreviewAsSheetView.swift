@@ -5,15 +5,18 @@
 
 import SwiftUI
 
+enum PreviewAudience {
+    case fellowHuman
+    case unknownLurker
+}
+
+/// Doesn't dismiss or present anything itself — reports the chosen audience
+/// via `onContinue` and lets the caller (`PhotoDetailView`) sequence the
+/// sheet dismiss and the actual preview presentation.
 struct PreviewAsSheetView: View {
-    @Environment(\.dismiss) private var dismiss
+    let onContinue: (PreviewAudience) -> Void
 
-    private enum Audience {
-        case fellowHuman
-        case unknownLurker
-    }
-
-    @State private var selection: Audience = .fellowHuman
+    @State private var selection: PreviewAudience = .fellowHuman
 
     var body: some View {
         ZStack {
@@ -39,7 +42,7 @@ struct PreviewAsSheetView: View {
                     ) { selection = .unknownLurker }
                 }
 
-                PrimaryButton(title: "Continue") { dismiss() }
+                PrimaryButton(title: "Continue") { onContinue(selection) }
             }
             .padding(24)
             .padding(.top, 16)
@@ -51,6 +54,6 @@ struct PreviewAsSheetView: View {
 
 #Preview {
     Color.clear.sheet(isPresented: .constant(true)) {
-        PreviewAsSheetView()
+        PreviewAsSheetView(onContinue: { _ in })
     }
 }

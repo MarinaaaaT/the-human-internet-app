@@ -15,10 +15,19 @@ struct RemotePhotoImage: View {
 
     @State private var imageData: Data?
     @State private var didFail = false
+    /// Which photo `imageData` actually belongs to. Call sites that reuse
+    /// one spot in the view tree for different photos over time — like
+    /// CameraCaptureView's last-photo thumbnail, which isn't in a ForEach —
+    /// keep this view's `@State` alive across a photo change, so the bytes
+    /// have to be matched against the current photo explicitly rather than
+    /// assumed fresh.
+    @State private var loadedPath: String?
+
+    private var isLoaded: Bool { loadedPath == photo.storagePath }
 
     var body: some View {
         Group {
-            if let imageData, let uiImage = UIImage(data: imageData) {
+            if isLoaded, let imageData, let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: contentMode)
@@ -34,7 +43,13 @@ struct RemotePhotoImage: View {
             }
         }
         .task(id: photo.storagePath) {
-            guard imageData == nil else { return }
+            // Guards on the *photo*, not merely on "have I loaded
+            // something" — the latter left a reused view showing the
+            // previous photo forever.
+            guard !isLoaded else { return }
+            imageData = nil
+            didFail = false
+
             // A photo that's still uploading (or just resumed after a
             // force-quit) has no object in Storage yet — fetching it there
             // would 404 and, since this task only runs once per storagePath,
@@ -42,10 +57,12 @@ struct RemotePhotoImage: View {
             // local pending copy has the identical bytes, so prefer it.
             if let localData = PhotoUploadQueue.localImageData(for: photo.id) {
                 imageData = localData
+                loadedPath = photo.storagePath
                 return
             }
             do {
                 imageData = try await PhotoRepository.downloadImage(path: photo.storagePath)
+                loadedPath = photo.storagePath
             } catch {
                 didFail = true
                 debugPrint(error)
