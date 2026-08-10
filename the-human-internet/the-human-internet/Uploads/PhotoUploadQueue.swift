@@ -96,6 +96,22 @@ enum PhotoUploadQueue {
         try? Data(contentsOf: fileURL(for: photoID))
     }
 
+    /// Clears any local trace of a photo — its manifest entry, pending file,
+    /// and uploading/failed status — regardless of what stage its upload was
+    /// at. Used when deleting a photo so a still-uploading or previously
+    /// failed one can't resurface later via a resumed upload.
+    ///
+    /// Doesn't cancel an upload already in flight: that's a narrow, rare
+    /// race (delete landing in the same instant as a background upload
+    /// completing), and `PhotoRepository.delete`'s DB-row delete is what
+    /// actually matters for the verification link either way.
+    static func cancelPendingUpload(photoID: UUID, appState: AppState) {
+        removeFromManifest(photoID: photoID)
+        try? FileManager.default.removeItem(at: fileURL(for: photoID))
+        appState.uploadingPhotoIDs.remove(photoID)
+        appState.failedUploadIDs.remove(photoID)
+    }
+
     private static func drive(photoID: UUID, userID: UUID, capturedAt: Date, shortCode: String, appState: AppState) {
         // Guards against a resume and a manual retry racing to upload the
         // same photo at once.

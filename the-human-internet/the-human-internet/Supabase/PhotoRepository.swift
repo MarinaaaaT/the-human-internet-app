@@ -66,4 +66,18 @@ enum PhotoRepository {
     static func downloadImage(path: String) async throws -> Data {
         try await supabase.storage.from("photos").download(path: path)
     }
+
+    /// Deletes the DB row first — that's what `fetch(photoID:)` (the
+    /// verification page's lookup) depends on, so it's what actually kills
+    /// the link. The Storage object cleanup after it is best-effort: a
+    /// failure there just leaves an orphaned, otherwise-unreachable file
+    /// behind rather than a dead link with a lingering row.
+    static func delete(photo: VerifiedPhoto) async throws {
+        try await supabase
+            .from("photos")
+            .delete()
+            .eq("id", value: photo.id)
+            .execute()
+        try? await supabase.storage.from("photos").remove(paths: [photo.storagePath])
+    }
 }

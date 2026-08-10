@@ -12,7 +12,14 @@ struct PhotoThumbnail: View {
 
     var body: some View {
         RemotePhotoImage(photo: photo)
-            .aspectRatio(1, contentMode: .fill)
+            // `.fit`, not `.fill`: in a LazyVGrid, the proposed height is
+            // effectively unconstrained, and "fill a 1:1 box that's at
+            // least as tall as infinity" is undefined — it silently fell
+            // through to each photo's own aspect ratio instead of a square.
+            // `.fit` against (width, ∞) unambiguously resolves to a
+            // (width, width) square; the inner `RemotePhotoImage` still
+            // fills *that* square and gets clipped to it below.
+            .aspectRatio(1, contentMode: .fit)
             .clipped()
             .overlay(alignment: .bottomTrailing) {
                 statusBadge

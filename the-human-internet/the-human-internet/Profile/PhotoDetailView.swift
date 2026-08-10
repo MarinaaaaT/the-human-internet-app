@@ -8,6 +8,9 @@ import SwiftUI
 struct PhotoDetailView: View {
     let photo: VerifiedPhoto
 
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+
     @State private var showShareSheet = false
     @State private var showPreviewSheet = false
     /// Captured when "Continue" is tapped in `PreviewAsSheetView`, then acted
@@ -16,6 +19,10 @@ struct PhotoDetailView: View {
     @State private var pendingPreviewAudience: PreviewAudience?
     @State private var showAppPreview = false
     @State private var showWebPreview = false
+
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
+    @State private var deleteError: String?
 
     var body: some View {
         ZStack {
@@ -43,6 +50,35 @@ struct PhotoDetailView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showDeleteConfirmation = true
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .disabled(isDeleting)
+            }
+        }
+        .confirmationDialog(
+            "Delete this photo?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { deletePhoto() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes the photo and its verification link. It'll stay in your device's photo library.")
+        }
+        .alert(
+            "Couldn't delete photo",
+            isPresented: Binding(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })
+        ) {
+            Button("OK") { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "Please try again.")
+        }
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(photo: photo)
         }
@@ -72,6 +108,22 @@ struct PhotoDetailView: View {
         // other signed-out visitor.
         .sheet(isPresented: $showWebPreview) {
             WebPreviewView(url: photo.verificationURL)
+        }
+    }
+
+    private func deletePhoto() {
+        isDeleting = true
+        Task {
+            defer { isDeleting = false }
+            do {
+                try await PhotoRepository.delete(photo: photo)
+                PhotoUploadQueue.cancelPendingUpload(photoID: photo.id, appState: appState)
+                appState.photos.removeAll { $0.id == photo.id }
+                dismiss()
+            } catch {
+                deleteError = "Please try again."
+                debugPrint(error)
+            }
         }
     }
 }
