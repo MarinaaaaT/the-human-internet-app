@@ -78,6 +78,6 @@ struct PhotoDetailView: View {
 
 #Preview {
     NavigationStack {
-        PhotoDetailView(photo: VerifiedPhoto(id: UUID(), userID: UUID(), storagePath: "preview/example.jpg", capturedAt: .now, verificationDeepLink: "thehumaninternet://photo/preview"))
+        PhotoDetailView(photo: VerifiedPhoto(id: UUID(), userID: UUID(), storagePath: "preview/example.jpg", capturedAt: .now, verificationDeepLink: "thehumaninternet://photo/preview", shortCode: "preview1"))
     }
 }

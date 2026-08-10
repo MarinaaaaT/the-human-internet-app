@@ -44,7 +44,7 @@ struct PhotoThumbnail: View {
 }
 
 #Preview {
-    PhotoThumbnail(photo: VerifiedPhoto(id: UUID(), userID: UUID(), storagePath: "preview/example.jpg", capturedAt: .now, verificationDeepLink: "thehumaninternet://photo/preview"))
+    PhotoThumbnail(photo: VerifiedPhoto(id: UUID(), userID: UUID(), storagePath: "preview/example.jpg", capturedAt: .now, verificationDeepLink: "thehumaninternet://photo/preview", shortCode: "preview1"))
         .frame(width: 120, height: 120)
         .environment(AppState())
 }

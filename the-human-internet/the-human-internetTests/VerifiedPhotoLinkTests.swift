@@ -10,22 +10,23 @@ import Testing
 
 /// Pins the contract between this app and the website: the link the share
 /// sheet copies has to resolve to the Next.js `/[photoId]` route, which looks
-/// the photo up by its bare `photos.id`. A change on either side that breaks
-/// that silently produces dead links in the wild.
+/// the photo up by its `short_code` (falling back to the bare `photos.id`
+/// for links shared before short codes existed). A change on either side
+/// that breaks that silently produces dead links in the wild.
 struct VerifiedPhotoLinkTests {
-    private func makePhoto(id: UUID) -> VerifiedPhoto {
+    private func makePhoto(id: UUID, shortCode: String = "aB3xK9mP") -> VerifiedPhoto {
         VerifiedPhoto(
             id: id,
             userID: UUID(),
             storagePath: "\(UUID().uuidString.lowercased())/\(id.uuidString.lowercased()).jpg",
             capturedAt: .now,
-            verificationDeepLink: "thehumaninternet://photo/\(id.uuidString.lowercased())"
+            verificationDeepLink: "thehumaninternet://photo/\(id.uuidString.lowercased())",
+            shortCode: shortCode
         )
     }
 
     @Test func sharedURLPointsAtTheWebVerificationRoute() throws {
-        let id = UUID()
-        let photo = makePhoto(id: id)
+        let photo = makePhoto(id: UUID(), shortCode: "aB3xK9mP")
         let url = photo.verificationURL
 
         // Must be a real, tappable https URL — the display string alone has
@@ -33,10 +34,18 @@ struct VerifiedPhotoLinkTests {
         #expect(url.scheme == "https")
         #expect(url.host() == "the-human-internet.com")
 
-        // The path is the bare photo id, lowercased to match Postgres's
-        // canonical uuid rendering. Swift's uuidString is uppercase.
-        #expect(url.path() == "/\(id.uuidString.lowercased())")
-        #expect(url.path() != "/\(id.uuidString)")
+        // The path is the short code, not the id — much shorter, and still
+        // collision-free (see `VerifiedPhoto.generateShortCode`).
+        #expect(url.path() == "/aB3xK9mP")
+    }
+
+    @Test func generatedShortCodeIsEightBase58Characters() {
+        let code = VerifiedPhoto.generateShortCode()
+        #expect(code.count == 8)
+        // Base58 (Bitcoin alphabet): no 0/O/I/l, avoiding visual ambiguity.
+        let disallowed = Set("0OIl")
+        #expect(code.allSatisfy { $0.isLetter || $0.isNumber })
+        #expect(code.allSatisfy { !disallowed.contains($0) })
     }
 
     @Test func sharedURLIsTheDisplayLinkPlusScheme() {

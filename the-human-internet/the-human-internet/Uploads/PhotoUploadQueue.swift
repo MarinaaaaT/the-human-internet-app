@@ -20,6 +20,7 @@ enum PhotoUploadQueue {
         let id: UUID
         let userID: UUID
         let capturedAt: Date
+        let shortCode: String
     }
 
     private static let directory: URL = {
@@ -38,20 +39,22 @@ enum PhotoUploadQueue {
     static func enqueue(imageData: Data, userID: UUID, appState: AppState) throws -> VerifiedPhoto {
         let photoID = UUID()
         let capturedAt = Date.now
+        let shortCode = VerifiedPhoto.generateShortCode()
 
         try imageData.write(to: fileURL(for: photoID), options: .atomic)
         var manifest = loadManifest()
-        manifest.append(PendingUpload(id: photoID, userID: userID, capturedAt: capturedAt))
+        manifest.append(PendingUpload(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode))
         saveManifest(manifest)
 
-        drive(photoID: photoID, userID: userID, capturedAt: capturedAt, appState: appState)
+        drive(photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, appState: appState)
 
         return VerifiedPhoto(
             id: photoID,
             userID: userID,
             storagePath: storagePath(userID: userID, photoID: photoID),
             capturedAt: capturedAt,
-            verificationDeepLink: "thehumaninternet://photo/\(photoID.uuidString.lowercased())"
+            verificationDeepLink: "thehumaninternet://photo/\(photoID.uuidString.lowercased())",
+            shortCode: shortCode
         )
     }
 
@@ -68,11 +71,12 @@ enum PhotoUploadQueue {
                     userID: item.userID,
                     storagePath: storagePath(userID: item.userID, photoID: item.id),
                     capturedAt: item.capturedAt,
-                    verificationDeepLink: "thehumaninternet://photo/\(item.id.uuidString.lowercased())"
+                    verificationDeepLink: "thehumaninternet://photo/\(item.id.uuidString.lowercased())",
+                    shortCode: item.shortCode
                 )
                 appState.photos.append(photo)
             }
-            drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, appState: appState)
+            drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
         }
         appState.photos.sort { $0.capturedAt > $1.capturedAt }
     }
@@ -80,7 +84,7 @@ enum PhotoUploadQueue {
     /// Manually re-attempts a specific upload that previously failed.
     static func retry(photoID: UUID, appState: AppState) {
         guard let item = loadManifest().first(where: { $0.id == photoID }) else { return }
-        drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, appState: appState)
+        drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
     }
 
     /// The on-disk copy of a photo that's still pending upload, or `nil` once
@@ -92,7 +96,7 @@ enum PhotoUploadQueue {
         try? Data(contentsOf: fileURL(for: photoID))
     }
 
-    private static func drive(photoID: UUID, userID: UUID, capturedAt: Date, appState: AppState) {
+    private static func drive(photoID: UUID, userID: UUID, capturedAt: Date, shortCode: String, appState: AppState) {
         // Guards against a resume and a manual retry racing to upload the
         // same photo at once.
         guard !appState.uploadingPhotoIDs.contains(photoID) else { return }
@@ -103,7 +107,7 @@ enum PhotoUploadQueue {
             do {
                 let imageData = try Data(contentsOf: fileURL(for: photoID))
                 let photo = try await PhotoRepository.upload(
-                    imageData: imageData, photoID: photoID, userID: userID, capturedAt: capturedAt
+                    imageData: imageData, photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode
                 )
                 removeFromManifest(photoID: photoID)
                 try? FileManager.default.removeItem(at: fileURL(for: photoID))
