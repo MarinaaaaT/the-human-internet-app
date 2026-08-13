@@ -10,13 +10,12 @@ struct IdentityVerificationView: View {
     var onFinish: () -> Void
 
     @State private var phoneNumber = ""
-    // SSN last-four — validated locally only, never written to `appState.user` or
-    // upserted anywhere. `HumanUser`/the `users` table have no field for it by design.
-    @State private var digits = ["", "", "", ""]
-    @FocusState private var focusedDigit: Int?
+    @State private var isCreatingSession = false
+    @State private var verificationURL: URL?
+    @State private var errorMessage: String?
 
     private var isValid: Bool {
-        !phoneNumber.trimmingCharacters(in: .whitespaces).isEmpty && digits.allSatisfy { !$0.isEmpty }
+        !phoneNumber.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
@@ -27,7 +26,7 @@ struct IdentityVerificationView: View {
                     Text("Verify your identity")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(.white)
-                    Text("The information is only used to verify your identity. It will not be publicly visible and remains completely private.")
+                    Text("You'll scan a government-issued ID and take a quick selfie. It will not be publicly visible and remains completely private.")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -37,20 +36,14 @@ struct IdentityVerificationView: View {
                     HITextField(placeholder: "Phone Number", text: $phoneNumber, keyboardType: .phonePad)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    FieldLabel(text: "Last 4 Digits of Social Security")
-                    HStack(spacing: 12) {
-                        ForEach(0..<4, id: \.self) { index in
-                            DigitBox(text: $digits[index], focusBinding: $focusedDigit, index: index, count: 4)
-                        }
-                    }
-                }
-
                 Spacer()
 
-                PrimaryButton(title: "Finish", isEnabled: isValid) {
+                PrimaryButton(
+                    title: isCreatingSession ? "Starting verification…" : "Verify with ID",
+                    isEnabled: isValid && !isCreatingSession
+                ) {
                     appState.user.phoneNumber = phoneNumber
-                    onFinish()
+                    startVerification()
                 }
             }
             .padding(24)
@@ -58,8 +51,41 @@ struct IdentityVerificationView: View {
         }
         .onAppear {
             // Resuming after a previous session — prefill what was already entered.
-            // SSN digits are intentionally excluded: never stored, so never prefilled.
             phoneNumber = appState.user.phoneNumber
+        }
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { verificationURL != nil },
+                set: { if !$0 { verificationURL = nil } }
+            )
+        ) {
+            if let verificationURL {
+                StripeIdentityWebView(url: verificationURL, onComplete: onFinish)
+            }
+        }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private func startVerification() {
+        isCreatingSession = true
+        Task {
+            do {
+                verificationURL = try await UserProfileRepository.createIdentityVerificationSession()
+            } catch {
+                errorMessage = "Couldn't start verification — please try again."
+                debugPrint(error)
+            }
+            isCreatingSession = false
         }
     }
 }

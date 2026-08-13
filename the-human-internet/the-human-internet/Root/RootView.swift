@@ -9,6 +9,7 @@ import Supabase
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @State private var isRestoringSession = true
+    @State private var showDeveloperMenu = false
 
     var body: some View {
         Group {
@@ -27,6 +28,18 @@ struct RootView: View {
         .preferredColorScheme(.dark)
         .onOpenURL { url in
             handle(url: url)
+        }
+        .background(
+            // `appState.isAdmin` only ever becomes true post-hydrate (i.e.
+            // once signed in), so this is naturally inert on Welcome/onboarding
+            // screens for everyone but an already-onboarded admin.
+            ShakeDetector {
+                guard appState.isAdmin else { return }
+                showDeveloperMenu = true
+            }
+        )
+        .sheet(isPresented: $showDeveloperMenu) {
+            DeveloperMenuView()
         }
         .fullScreenCover(item: Binding(
             get: { appState.deepLinkedPhoto },

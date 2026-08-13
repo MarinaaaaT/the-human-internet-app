@@ -27,9 +27,9 @@ enum OnboardingStep: String, Codable, Hashable {
     case completed
 }
 
-/// Maps 1:1 to a row in the `users` table. Deliberately has no field for the
-/// SSN last-four collected during identity verification — that value must
-/// never leave `IdentityVerificationView`'s local state.
+/// Maps 1:1 to a row in the `users` table. Deliberately has no SSN field:
+/// identity verification runs through Stripe Identity (document + selfie
+/// checks only), which never collects or sends an SSN.
 struct HumanUser: Codable, Hashable {
     var id: UUID?
     var username: String = ""

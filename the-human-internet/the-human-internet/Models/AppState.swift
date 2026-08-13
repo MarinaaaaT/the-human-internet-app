@@ -13,6 +13,23 @@ final class AppState {
     var user = HumanUser()
     var photos: [VerifiedPhoto] = []
 
+    /// Never sourced from `user`/`HumanUser` — see
+    /// `UserProfileRepository.fetchIsAdmin` for why admin status is kept out
+    /// of the model that round-trips through `upsert`.
+    var isAdmin = false
+
+    /// Remote feature flags, keyed by `FeatureFlagKey`. Populated on every
+    /// hydrate so a flag flipped by an admin takes effect for other users on
+    /// their next launch/sign-in without an app update.
+    var featureFlags: [String: Bool] = [:]
+
+    /// Fails secure: if flags haven't loaded (or the key is missing), this
+    /// defaults to `true` — same as verification being required today —
+    /// rather than silently letting onboarding skip a step on a fetch glitch.
+    var isStripeIdentityVerificationEnabled: Bool {
+        featureFlags[FeatureFlagKey.stripeIdentityVerification] ?? true
+    }
+
     /// IDs of photos in `photos` whose upload to Supabase is still in
     /// flight (optimistically inserted, not yet confirmed) or has failed and
     /// is waiting on a retry. Driven by `PhotoUploadQueue`; views read these
@@ -35,6 +52,8 @@ final class AppState {
         uploadingPhotoIDs = []
         failedUploadIDs = []
         deepLinkedPhoto = nil
+        isAdmin = false
+        featureFlags = [:]
     }
 
     /// The single place that turns "this identity is authenticated" into
@@ -48,6 +67,8 @@ final class AppState {
         let profile = try await UserProfileRepository.resolveOrCreate(userID: userID)
         user = profile
         isOnboarded = profile.onboardingStep == .completed
+        isAdmin = try await UserProfileRepository.fetchIsAdmin(userID: userID)
+        featureFlags = try await FeatureFlagRepository.fetchAll()
         photos = try await PhotoRepository.fetchAll(userID: userID)
         // Picks back up anything left mid-upload by a force-quit or crash —
         // safe to call on every hydrate, since PhotoUploadQueue no-ops for

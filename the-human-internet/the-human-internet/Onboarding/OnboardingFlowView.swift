@@ -39,8 +39,20 @@ struct OnboardingFlowView: View {
                         advance(to: .verify)
                     }
                 case .verify:
-                    IdentityVerificationView {
-                        advance(to: .welcomeHuman)
+                    // Admin-controlled kill switch (developer menu > Feature
+                    // Flags) for when Stripe Identity itself is unavailable —
+                    // skips straight through, leaving verification_status at
+                    // its default (pending) rather than getting users stuck.
+                    if appState.isStripeIdentityVerificationEnabled {
+                        IdentityVerificationView {
+                            advance(to: .welcomeHuman)
+                        }
+                    } else {
+                        ZStack {
+                            Theme.background.ignoresSafeArea()
+                            ProgressView().tint(.white)
+                        }
+                        .onAppear { advance(to: .welcomeHuman) }
                     }
                 case .welcomeHuman:
                     WelcomeHumanView {

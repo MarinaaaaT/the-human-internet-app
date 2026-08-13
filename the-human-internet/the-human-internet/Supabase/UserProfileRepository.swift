@@ -40,4 +40,32 @@ enum UserProfileRepository {
     static func isUsernameConflict(_ error: Error) -> Bool {
         (error as? PostgrestError)?.code == "23505"
     }
+
+    /// Creates (or, on retry, resumes) a Stripe Identity VerificationSession
+    /// via the `stripe-identity-session` Edge Function and returns its hosted
+    /// verification URL. The Stripe secret key never leaves the server side.
+    static func createIdentityVerificationSession() async throws -> URL {
+        struct Response: Decodable { let url: URL }
+        let response: Response = try await supabase.functions.invoke("stripe-identity-session")
+        return response.url
+    }
+
+    /// Deliberately not a field on `HumanUser`: that struct round-trips
+    /// through `upsert`, and `is_admin` must never be settable by writing
+    /// the client's own copy of its row back — see the
+    /// `prevent_self_admin_escalation` triggers on `public.users`. This is a
+    /// separate, narrow, read-only query instead.
+    static func fetchIsAdmin(userID: UUID) async throws -> Bool {
+        struct Row: Decodable {
+            let isAdmin: Bool
+            enum CodingKeys: String, CodingKey { case isAdmin = "is_admin" }
+        }
+        let rows: [Row] = try await supabase
+            .from("users")
+            .select("is_admin")
+            .eq("id", value: userID)
+            .execute()
+            .value
+        return rows.first?.isAdmin ?? false
+    }
 }

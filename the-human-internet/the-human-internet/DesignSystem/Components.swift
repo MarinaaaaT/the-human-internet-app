@@ -94,32 +94,6 @@ struct FieldLabel: View {
     }
 }
 
-struct DigitBox: View {
-    @Binding var text: String
-    var focusBinding: FocusState<Int?>.Binding
-    var index: Int
-    var count: Int
-
-    var body: some View {
-        TextField("0", text: $text)
-            .keyboardType(.numberPad)
-            .multilineTextAlignment(.center)
-            .foregroundStyle(.white)
-            .frame(width: 48, height: 48)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08), lineWidth: 1))
-            .focused(focusBinding, equals: index)
-            .onChange(of: text) { _, newValue in
-                let filtered = String(newValue.filter(\.isNumber).suffix(1))
-                if filtered != text { text = filtered }
-
-                guard !filtered.isEmpty else { return }
-                focusBinding.wrappedValue = index + 1 < count ? index + 1 : nil
-            }
-    }
-}
-
 struct SheetGrabber: View {
     var body: some View {
         Capsule()
