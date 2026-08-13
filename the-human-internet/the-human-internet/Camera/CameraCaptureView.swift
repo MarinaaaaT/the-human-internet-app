@@ -176,12 +176,21 @@ struct CameraCaptureView: View {
                 // watermarking afterward would invalidate that binding.
                 let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
 
-                // C2PA signing is a synchronous, potentially non-trivial
-                // native call — detached so it doesn't block this task's
-                // (main) actor.
-                let signedData = try await Task.detached(priority: .userInitiated) {
-                    try PhotoSigner.sign(imageData: watermarkedData)
-                }.value
+                // Server-side signing (AWS KMS-backed, real key never on
+                // device) is opt-in behind the flag while it's being stood
+                // up; on-device signing with the bundled dev cert remains
+                // the default. See RemotePhotoSigner.swift.
+                let signedData: Data
+                if appState.isAWSServerSideSigningEnabled {
+                    signedData = try await RemotePhotoSigner.sign(imageData: watermarkedData)
+                } else {
+                    // C2PA signing is a synchronous, potentially non-trivial
+                    // native call — detached so it doesn't block this task's
+                    // (main) actor.
+                    signedData = try await Task.detached(priority: .userInitiated) {
+                        try PhotoSigner.sign(imageData: watermarkedData)
+                    }.value
+                }
 
                 // `appState.photos` is hydrated from the DB on launch, so this
                 // reflects whether they've ever posted before — not just whether

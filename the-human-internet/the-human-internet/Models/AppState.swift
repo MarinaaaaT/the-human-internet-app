@@ -30,6 +30,14 @@ final class AppState {
         featureFlags[FeatureFlagKey.stripeIdentityVerification] ?? true
     }
 
+    /// Fails secure the other direction from the flag above: defaults to
+    /// `false` (on-device signing) if flags haven't loaded, since the AWS
+    /// signing path is opt-in while it's being stood up, not a fallback to
+    /// avoid depending on.
+    var isAWSServerSideSigningEnabled: Bool {
+        featureFlags[FeatureFlagKey.awsServerSideSigning] ?? false
+    }
+
     /// IDs of photos in `photos` whose upload to Supabase is still in
     /// flight (optimistically inserted, not yet confirmed) or has failed and
     /// is waiting on a retry. Driven by `PhotoUploadQueue`; views read these

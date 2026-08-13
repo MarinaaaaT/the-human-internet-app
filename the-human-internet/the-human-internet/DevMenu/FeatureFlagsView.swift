@@ -18,6 +18,13 @@ struct FeatureFlagsView: View {
                     set: { setFlag(FeatureFlagKey.stripeIdentityVerification, to: $0) }
                 )
             )
+            Toggle(
+                "AWS Server Side Signing",
+                isOn: Binding(
+                    get: { appState.isAWSServerSideSigningEnabled },
+                    set: { setFlag(FeatureFlagKey.awsServerSideSigning, to: $0) }
+                )
+            )
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)

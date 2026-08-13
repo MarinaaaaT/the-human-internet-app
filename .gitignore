@@ -18,6 +18,9 @@ xcuserdata/
 project.xcworkspace/xcuserdata/
 .swiftpm/
 
+# Rust (aws-signing-lambda/)
+target/
+
 # macOS
 .DS_Store
 

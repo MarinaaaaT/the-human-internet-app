@@ -14,9 +14,18 @@ not on the Trust List" rather than a green checkmark.
 It's safe for this key to live in the app bundle specifically *because* it
 isn't a real trust anchor: a leaked dev key can only forge equally-untrusted
 manifests. **A real production signing key must never ship client-side** —
-once conformance is complete and a Trust List cert is issued, signing should
-move server-side (a Supabase Edge Function holding the real key) rather than
-just swapping these two files in place.
+signing should move server-side rather than just swapping these two files
+in place.
+
+That move is in progress, gated behind the `aws_server_side_signing`
+feature flag (off by default — see `FeatureFlagRepository.swift` and
+`CameraCaptureView.capture()`). The key itself lives in **AWS KMS**, never
+in this repo, the app bundle, or Supabase — see `aws-signing-lambda/` at
+the repo root and the Notion pages under The Human Internet → Technical
+Architecture and Docs for the full design and setup checklist. The
+Supabase `sign-photo` Edge Function is only the identity-checking front
+door (verifies the caller's JWT, same as `stripe-identity-session`); it
+forwards to the Lambda over IAM auth rather than holding the key itself.
 
 ## Regenerating
 

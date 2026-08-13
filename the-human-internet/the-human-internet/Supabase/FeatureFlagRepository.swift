@@ -13,6 +13,7 @@ import Supabase
 /// unavailable. Writes are enforced admin-only by RLS on `public.feature_flags`.
 enum FeatureFlagKey {
     static let stripeIdentityVerification = "stripe_identity_verification"
+    static let awsServerSideSigning = "aws_server_side_signing"
 }
 
 enum FeatureFlagRepository {
