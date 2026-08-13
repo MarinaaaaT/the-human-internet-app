@@ -44,7 +44,15 @@ final class AppState {
 
     /// Clears local state after Supabase signs out, so RootView's isOnboarded
     /// check naturally falls back to OnboardingFlowView's Welcome screen.
+    ///
+    /// Prunes this user's un-uploaded photos from disk first — before the
+    /// network call, so the local cleanup still happens even if signing out
+    /// of Supabase fails — so the next person on a shared device can't
+    /// recover them.
     func signOut() async throws {
+        if let userID = user.id {
+            await PhotoUploadQueue.pruneOnSignOut(userID: userID)
+        }
         try await supabase.auth.signOut()
         isOnboarded = false
         user = HumanUser()

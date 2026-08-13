@@ -18,7 +18,7 @@ struct WelcomeView: View {
                 Spacer()
                 BrandMark(size: 56)
                     .padding(.bottom, 24)
-                Text("Welcome to the\nhuman network")
+                Text("Welcome to\nthe human internet")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)

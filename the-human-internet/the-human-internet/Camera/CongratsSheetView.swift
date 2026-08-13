@@ -20,7 +20,7 @@ struct CongratsSheetView: View {
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: 14) {
-                    bullet("Your photos are currently public, which means anyone with the link can see them — including the robots. You can change this to humans only in your profile, so only people signed up to the human network can verify photo contents.")
+                    bullet("Your photos are currently public, which means anyone with the link can see them — including the robots. You can change this to humans only in your profile, so only people signed up to the human internet can verify photo contents.")
                     bullet("All photos are also saved to your camera roll, so if you ever lose access to your account, you keep your photos.")
                 }
 

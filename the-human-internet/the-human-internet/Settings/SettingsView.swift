@@ -67,7 +67,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showEditUsername) {
             EditUsernameSheet()
         }
-        .confirmationDialog("Log out of the human network?", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
+        .confirmationDialog("Log out of the human internet?", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
             Button("Log Out", role: .destructive) {
                 signOut()
             }

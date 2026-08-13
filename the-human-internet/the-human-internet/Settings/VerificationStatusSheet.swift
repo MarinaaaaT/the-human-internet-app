@@ -20,7 +20,7 @@ struct VerificationStatusSheet: View {
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.textSecondary)
 
-                Text("If your verification status fails and is not resubmitted within 14 days, you will be removed from the human network.")
+                Text("If your verification status fails and is not resubmitted within 14 days, you will be removed from the human internet.")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.textSecondary)
 
