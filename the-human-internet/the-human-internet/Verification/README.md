@@ -17,12 +17,15 @@ manifests. **A real production signing key must never ship client-side** —
 signing should move server-side rather than just swapping these two files
 in place.
 
-That move is in progress, gated behind the `aws_server_side_signing`
-feature flag (off by default — see `FeatureFlagRepository.swift` and
-`CameraCaptureView.capture()`). The key itself lives in **AWS KMS**, never
-in this repo, the app bundle, or Supabase — see `aws-signing-lambda/` at
-the repo root and the Notion pages under The Human Internet → Technical
-Architecture and Docs for the full design and setup checklist. The
+That move has happened: it's gated behind the `aws_server_side_signing`
+feature flag, which is **currently on** (see `FeatureFlagRepository.swift`
+and `PhotoUploadQueue.drive()`, which picks the signer per photo; the flag
+defaults to *off* — this on-device path — if flags can't be read). The key
+itself lives in **AWS KMS**, never in this repo, the app bundle, or
+Supabase — see `aws-signing-lambda/` in the sibling
+`the-human-internet-backend` repo (it moved out of this one on 2026-08-14)
+and the Notion pages under The Human Internet → Technical Architecture and
+Docs for the full design and setup checklist. The
 Supabase `sign-photo` Edge Function is only the identity-checking front
 door (verifies the caller's JWT, same as `stripe-identity-session`); it
 forwards to the Lambda over IAM auth rather than holding the key itself.
