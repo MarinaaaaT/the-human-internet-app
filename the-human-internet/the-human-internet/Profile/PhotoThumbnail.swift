@@ -28,14 +28,14 @@ struct PhotoThumbnail: View {
 
     @ViewBuilder
     private var statusBadge: some View {
-        if appState.uploadingPhotoIDs.contains(photo.id) {
+        if appState.processingPhotoIDs.contains(photo.id) {
             ProgressView()
                 .tint(.white)
                 .scaleEffect(0.7)
                 .padding(6)
                 .background(.black.opacity(0.45), in: Circle())
                 .padding(6)
-        } else if appState.failedUploadIDs.contains(photo.id) {
+        } else if appState.failedPhotoIDs.contains(photo.id) {
             Button {
                 PhotoUploadQueue.retry(photoID: photo.id, appState: appState)
             } label: {

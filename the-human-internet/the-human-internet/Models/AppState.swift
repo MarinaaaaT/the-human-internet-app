@@ -38,12 +38,13 @@ final class AppState {
         featureFlags[FeatureFlagKey.awsServerSideSigning] ?? false
     }
 
-    /// IDs of photos in `photos` whose upload to Supabase is still in
-    /// flight (optimistically inserted, not yet confirmed) or has failed and
-    /// is waiting on a retry. Driven by `PhotoUploadQueue`; views read these
-    /// to show a spinner/retry badge without blocking capture on the network.
-    var uploadingPhotoIDs: Set<UUID> = []
-    var failedUploadIDs: Set<UUID> = []
+    /// IDs of photos in `photos` that are still being signed and/or
+    /// uploaded to Supabase (optimistically inserted, not yet confirmed) or
+    /// have failed and are waiting on a retry. Driven by `PhotoUploadQueue`;
+    /// views read these to show a spinner/retry badge without blocking
+    /// capture on signing or the network.
+    var processingPhotoIDs: Set<UUID> = []
+    var failedPhotoIDs: Set<UUID> = []
 
     /// Set from a `thehumaninternet://photo/{id}` link. Drives a root-level
     /// fullScreenCover so it can present over whatever's currently on screen —
@@ -65,8 +66,8 @@ final class AppState {
         isOnboarded = false
         user = HumanUser()
         photos = []
-        uploadingPhotoIDs = []
-        failedUploadIDs = []
+        processingPhotoIDs = []
+        failedPhotoIDs = []
         deepLinkedPhoto = nil
         isAdmin = false
         featureFlags = [:]

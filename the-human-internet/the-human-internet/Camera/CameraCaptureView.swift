@@ -10,11 +10,10 @@ struct CameraCaptureView: View {
     @Environment(AppState.self) private var appState
     @State private var cameraSession = CameraSession()
     @State private var showCongrats = false
-    /// Covers capture + C2PA signing + the local library save + handing the
-    /// photo to `PhotoUploadQueue` — not the network upload itself, which
-    /// continues in the background so the shutter re-enables immediately.
-    @State private var isCapturing = false
     @State private var errorMessage: String?
+    /// Drives the shutter blink over the preview. Purely cosmetic — it never
+    /// gates capture, so rapid taps still all go through.
+    @State private var shutterFlash = 0.0
 
     var body: some View {
         ZStack {
@@ -61,6 +60,14 @@ struct CameraCaptureView: View {
             CameraPreviewView(session: cameraSession.session)
                 .ignoresSafeArea()
 
+            // Sits above the preview but below the controls, so only the
+            // viewfinder blinks — matching the system Camera app, where the
+            // shutter and chrome stay visible through the flash.
+            Color.black
+                .ignoresSafeArea()
+                .opacity(shutterFlash)
+                .allowsHitTesting(false)
+
             VStack {
                 HStack {
                     Spacer()
@@ -101,13 +108,7 @@ struct CameraCaptureView: View {
                             .fill(Color.white)
                             .frame(width: 72, height: 72)
                             .overlay(Circle().stroke(Color.black.opacity(0.15), lineWidth: 4).padding(4))
-                            .overlay {
-                                if isCapturing {
-                                    ProgressView().tint(Theme.background)
-                                }
-                            }
                     }
-                    .disabled(isCapturing)
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 24)
@@ -155,41 +156,34 @@ struct CameraCaptureView: View {
         .padding(32)
     }
 
+    /// Blinks the viewfinder to black and back. Driven from the tap rather
+    /// than from capture completion, so the feedback lands at the moment of
+    /// the press even while an earlier capture is still being processed.
+    private func flashShutter() {
+        withAnimation(.linear(duration: 0.05)) {
+            shutterFlash = 1
+        } completion: {
+            withAnimation(.easeOut(duration: 0.12)) {
+                shutterFlash = 0
+            }
+        }
+    }
+
     private func capture() {
         guard let userID = appState.user.id else { return }
-        isCapturing = true
+        flashShutter()
 
         Task {
-            defer { isCapturing = false }
             do {
                 let imageData = try await cameraSession.capturePhoto()
 
                 // Best-effort and independent of everything below: the
                 // user's own untouched capture — no watermark, no C2PA
                 // manifest, since nobody but them ever sees this copy. It's
-                // the fallback if the upload never finishes.
-                try? await PhotoLibrarySaver.save(imageData: imageData)
-
-                // Burned into the pixels *before* signing, so the C2PA
-                // manifest's hash binding covers the exact bytes that get
-                // uploaded and shared — signing the raw capture and
-                // watermarking afterward would invalidate that binding.
-                let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
-
-                // Server-side signing (AWS KMS-backed, real key never on
-                // device) is opt-in behind the flag while it's being stood
-                // up; on-device signing with the bundled dev cert remains
-                // the default. See RemotePhotoSigner.swift.
-                let signedData: Data
-                if appState.isAWSServerSideSigningEnabled {
-                    signedData = try await RemotePhotoSigner.sign(imageData: watermarkedData)
-                } else {
-                    // C2PA signing is a synchronous, potentially non-trivial
-                    // native call — detached so it doesn't block this task's
-                    // (main) actor.
-                    signedData = try await Task.detached(priority: .userInitiated) {
-                        try PhotoSigner.sign(imageData: watermarkedData)
-                    }.value
+                // the fallback if the upload never finishes, so it's fired
+                // off rather than awaited here.
+                Task.detached(priority: .utility) {
+                    try? await PhotoLibrarySaver.save(imageData: imageData)
                 }
 
                 // `appState.photos` is hydrated from the DB on launch, so this
@@ -197,10 +191,11 @@ struct CameraCaptureView: View {
                 // they've seen the modal this session.
                 let isFirstPhoto = appState.photos.isEmpty
 
-                // Persists to disk and starts the network upload in the
-                // background — this returns as soon as the photo is safely
-                // queued, not once it's actually uploaded.
-                let photo = try PhotoUploadQueue.enqueue(imageData: signedData, userID: userID, appState: appState)
+                // Persists the raw capture to disk and starts watermarking,
+                // signing, and the network upload in the background — this
+                // returns as soon as the photo is safely queued, not once
+                // it's actually processed.
+                let photo = try PhotoUploadQueue.enqueue(imageData: imageData, userID: userID, appState: appState)
                 appState.photos.insert(photo, at: 0)
 
                 if isFirstPhoto {

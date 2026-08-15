@@ -35,7 +35,11 @@ final class CameraSession: NSObject {
     let session = AVCaptureSession()
     private let photoOutput = AVCapturePhotoOutput()
     private var currentInput: AVCaptureDeviceInput?
-    private var captureContinuation: CheckedContinuation<Data, Error>?
+    /// Keyed by `AVCapturePhotoSettings.uniqueID`, not a single stored
+    /// continuation — the shutter doesn't disable between shots (matching
+    /// the system Camera app), so multiple captures can genuinely be in
+    /// flight at once and each must resolve its own continuation.
+    private var captureContinuations: [Int64: CheckedContinuation<Data, Error>] = [:]
 
     override init() {
         super.init()
@@ -86,9 +90,10 @@ final class CameraSession: NSObject {
         guard photoOutput.connection(with: .video) != nil else {
             throw CameraSessionError.noCameraAvailable
         }
+        let settings = AVCapturePhotoSettings()
         return try await withCheckedThrowingContinuation { continuation in
-            captureContinuation = continuation
-            photoOutput.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
+            captureContinuations[settings.uniqueID] = continuation
+            photoOutput.capturePhoto(with: settings, delegate: self)
         }
     }
 
@@ -97,6 +102,13 @@ final class CameraSession: NSObject {
         configureInput(for: position)
         if session.canAddOutput(photoOutput) {
             session.addOutput(photoOutput)
+        }
+        // Lets the output drop to a lower quality tier on its own when
+        // shutter taps arrive faster than the current tier can service them
+        // — the alternative is silently missing the shot. Must be set
+        // before startRunning().
+        if photoOutput.isFastCapturePrioritizationSupported {
+            photoOutput.isFastCapturePrioritizationEnabled = true
         }
     }
 
@@ -125,17 +137,16 @@ final class CameraSession: NSObject {
 
 extension CameraSession: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        let continuation = captureContinuation
-        captureContinuation = nil
+        guard let continuation = captureContinuations.removeValue(forKey: photo.resolvedSettings.uniqueID) else { return }
 
         if let error {
-            continuation?.resume(throwing: error)
+            continuation.resume(throwing: error)
             return
         }
         guard let data = photo.fileDataRepresentation() else {
-            continuation?.resume(throwing: CameraSessionError.captureFailed)
+            continuation.resume(throwing: CameraSessionError.captureFailed)
             return
         }
-        continuation?.resume(returning: data)
+        continuation.resume(returning: data)
     }
 }

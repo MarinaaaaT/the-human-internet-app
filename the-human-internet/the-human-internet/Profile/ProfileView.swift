@@ -34,6 +34,10 @@ struct ProfileView: View {
                     }
                 }
 
+                if !appState.processingPhotoIDs.isEmpty || !appState.failedPhotoIDs.isEmpty {
+                    PendingPhotosBanner()
+                }
+
                 Text("Privacy: \(appState.user.privacy.rawValue)")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.textSecondary)

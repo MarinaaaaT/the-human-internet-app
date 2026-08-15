@@ -5,12 +5,13 @@
 
 import Foundation
 
-/// Persists a captured, signed photo to disk *before* returning, so it can
-/// survive a force-quit, then drives the actual Supabase upload in the
-/// background — the capture flow never blocks on the network.
+/// Persists a raw captured photo to disk *before* returning, so it can
+/// survive a force-quit, then drives watermarking + signing (if not already
+/// done) and the actual Supabase upload in the background — the capture
+/// flow never blocks on any of that.
 ///
 /// The on-disk manifest is the durable source of truth for "what's still
-/// pending"; `AppState.photos`/`uploadingPhotoIDs`/`failedUploadIDs` are just
+/// pending"; `AppState.photos`/`processingPhotoIDs`/`failedPhotoIDs` are just
 /// an in-memory reflection of it for the UI. `AppState.hydrate` calls
 /// `resumePendingUploads` on every launch (cold start and fresh sign-in
 /// alike) so anything interrupted picks back up automatically.
@@ -21,6 +22,27 @@ enum PhotoUploadQueue {
         let userID: UUID
         let capturedAt: Date
         let shortCode: String
+        var isSigned: Bool
+
+        init(id: UUID, userID: UUID, capturedAt: Date, shortCode: String, isSigned: Bool) {
+            self.id = id
+            self.userID = userID
+            self.capturedAt = capturedAt
+            self.shortCode = shortCode
+            self.isSigned = isSigned
+        }
+
+        // Entries written before signing moved into `drive()` have no
+        // `isSigned` key — `enqueue` only ever wrote already-signed data
+        // back then, so absence means "signed", not the synthesized default.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            userID = try container.decode(UUID.self, forKey: .userID)
+            capturedAt = try container.decode(Date.self, forKey: .capturedAt)
+            shortCode = try container.decode(String.self, forKey: .shortCode)
+            isSigned = try container.decodeIfPresent(Bool.self, forKey: .isSigned) ?? true
+        }
     }
 
     private static let directory: URL = {
@@ -45,8 +67,43 @@ enum PhotoUploadQueue {
     private static let maxPendingAge: TimeInterval = 30 * 24 * 60 * 60
     private static let maxPendingCount = 200
 
-    /// Writes the signed image to disk and appends it to the manifest before
-    /// returning, then kicks off the network upload in the background.
+    /// How many photos may run the memory-heavy watermark + sign stage at
+    /// once. Each holds a full-resolution bitmap (~100MB for a 12MP capture),
+    /// and the shutter deliberately no longer serializes captures, so an
+    /// unbounded burst of rapid taps would otherwise be enough to get the app
+    /// jetsammed. Nothing user-facing waits on this stage, so queueing behind
+    /// a slot costs nothing perceptible.
+    private static let maxConcurrentProcessing = 2
+    private static var activeProcessingCount = 0
+    private static var processingWaiters: [CheckedContinuation<Void, Never>] = []
+
+    private static func acquireProcessingSlot() async {
+        if activeProcessingCount < maxConcurrentProcessing {
+            activeProcessingCount += 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            processingWaiters.append(continuation)
+        }
+        // The slot was handed over directly by `releaseProcessingSlot`, which
+        // left `activeProcessingCount` untouched — incrementing here would
+        // double-count it.
+    }
+
+    private static func releaseProcessingSlot() {
+        // Hands the slot straight to the next waiter rather than decrementing
+        // and re-incrementing: `resume()` only schedules that task, so a gap
+        // in the count would let an unrelated `acquire` slip in over the cap.
+        if processingWaiters.isEmpty {
+            activeProcessingCount -= 1
+        } else {
+            processingWaiters.removeFirst().resume()
+        }
+    }
+
+    /// Writes the raw (not yet watermarked or signed) captured image to disk
+    /// and appends it to the manifest before returning, then kicks off
+    /// watermarking, signing, and the network upload in the background.
     /// Returns an optimistic `VerifiedPhoto` the caller can show immediately.
     static func enqueue(imageData: Data, userID: UUID, appState: AppState) throws -> VerifiedPhoto {
         let photoID = UUID()
@@ -55,7 +112,7 @@ enum PhotoUploadQueue {
 
         try imageData.write(to: fileURL(for: photoID), options: .atomic)
         var manifest = loadManifest()
-        manifest.append(PendingUpload(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode))
+        manifest.append(PendingUpload(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, isSigned: false))
         saveManifest(manifest)
 
         drive(photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, appState: appState)
@@ -121,8 +178,8 @@ enum PhotoUploadQueue {
     static func cancelPendingUpload(photoID: UUID, appState: AppState) {
         removeFromManifest(photoID: photoID)
         try? FileManager.default.removeItem(at: fileURL(for: photoID))
-        appState.uploadingPhotoIDs.remove(photoID)
-        appState.failedUploadIDs.remove(photoID)
+        appState.processingPhotoIDs.remove(photoID)
+        appState.failedPhotoIDs.remove(photoID)
     }
 
     /// Deletes every pending file and manifest entry owned by `userID`.
@@ -173,30 +230,68 @@ enum PhotoUploadQueue {
     }
 
     private static func drive(photoID: UUID, userID: UUID, capturedAt: Date, shortCode: String, appState: AppState) {
-        // Guards against a resume and a manual retry racing to upload the
-        // same photo at once.
-        guard !appState.uploadingPhotoIDs.contains(photoID) else { return }
-        appState.uploadingPhotoIDs.insert(photoID)
-        appState.failedUploadIDs.remove(photoID)
+        // Guards against a resume and a manual retry racing to sign/upload
+        // the same photo at once — this only clears once signing *and*
+        // upload both finish (or either fails), so it covers both stages.
+        guard !appState.processingPhotoIDs.contains(photoID) else { return }
+        appState.processingPhotoIDs.insert(photoID)
+        appState.failedPhotoIDs.remove(photoID)
 
         Task {
             do {
-                let imageData = try Data(contentsOf: fileURL(for: photoID))
+                var imageData = try Data(contentsOf: fileURL(for: photoID))
+
+                // Missing manifest entry (e.g. raced with
+                // cancelPendingUpload) shouldn't retrigger watermarking/signing.
+                let isSigned = loadManifest().first(where: { $0.id == photoID })?.isSigned ?? true
+                if !isSigned {
+                    await acquireProcessingSlot()
+                    defer { releaseProcessingSlot() }
+
+                    // Burned into the pixels *before* signing, so the C2PA
+                    // manifest's hash binding covers the exact bytes that
+                    // get uploaded and shared — signing the raw capture and
+                    // watermarking afterward would invalidate that binding.
+                    let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
+
+                    let signedData: Data
+                    if appState.isAWSServerSideSigningEnabled {
+                        signedData = try await RemotePhotoSigner.sign(imageData: watermarkedData)
+                    } else {
+                        // C2PA signing is a synchronous, potentially non-trivial
+                        // native call — detached so it doesn't block this task's
+                        // (main) actor.
+                        signedData = try await Task.detached(priority: .userInitiated) {
+                            try PhotoSigner.sign(imageData: watermarkedData)
+                        }.value
+                    }
+                    try signedData.write(to: fileURL(for: photoID), options: .atomic)
+                    markSigned(photoID: photoID)
+                    imageData = signedData
+                }
+
                 let photo = try await PhotoRepository.upload(
                     imageData: imageData, photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode
                 )
                 removeFromManifest(photoID: photoID)
                 try? FileManager.default.removeItem(at: fileURL(for: photoID))
-                appState.uploadingPhotoIDs.remove(photoID)
+                appState.processingPhotoIDs.remove(photoID)
                 if let index = appState.photos.firstIndex(where: { $0.id == photoID }) {
                     appState.photos[index] = photo
                 }
             } catch {
-                appState.uploadingPhotoIDs.remove(photoID)
-                appState.failedUploadIDs.insert(photoID)
+                appState.processingPhotoIDs.remove(photoID)
+                appState.failedPhotoIDs.insert(photoID)
                 debugPrint(error)
             }
         }
+    }
+
+    private static func markSigned(photoID: UUID) {
+        var manifest = loadManifest()
+        guard let index = manifest.firstIndex(where: { $0.id == photoID }) else { return }
+        manifest[index].isSigned = true
+        saveManifest(manifest)
     }
 
     private static func storagePath(userID: UUID, photoID: UUID) -> String {
