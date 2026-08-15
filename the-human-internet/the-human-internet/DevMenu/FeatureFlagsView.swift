@@ -53,7 +53,7 @@ struct FeatureFlagsView: View {
             } catch {
                 appState.featureFlags[key] = previous
                 errorMessage = "Please try again."
-                debugPrint(error)
+                Log.devMenu.error("Setting feature flag \(key, privacy: .public) failed: \(error, privacy: .public)")
             }
         }
     }

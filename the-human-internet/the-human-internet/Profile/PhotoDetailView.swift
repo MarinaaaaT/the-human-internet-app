@@ -122,7 +122,7 @@ struct PhotoDetailView: View {
                 dismiss()
             } catch {
                 deleteError = "Please try again."
-                debugPrint(error)
+                Log.photos.error("Delete failed for \(photo.id, privacy: .public): \(error, privacy: .public)")
             }
         }
     }

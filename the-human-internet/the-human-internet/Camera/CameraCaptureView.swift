@@ -189,7 +189,14 @@ struct CameraCaptureView: View {
                 // the fallback if the upload never finishes, so it's fired
                 // off rather than awaited here.
                 Task.detached(priority: .utility) {
-                    try? await PhotoLibrarySaver.save(imageData: imageData)
+                    do {
+                        try await PhotoLibrarySaver.save(imageData: imageData)
+                    } catch {
+                        // Still best-effort — the upload path is the one that
+                        // matters — but a denied-Photos-access failure was
+                        // previously silent; at least surface it now.
+                        Log.camera.error("Photo library backup save failed: \(error, privacy: .public)")
+                    }
                 }
 
                 // `appState.photos` is hydrated from the DB on launch, so this
@@ -211,7 +218,7 @@ struct CameraCaptureView: View {
                 errorMessage = "No camera is available on this device."
             } catch {
                 errorMessage = "Please try again."
-                debugPrint(error)
+                Log.camera.error("Capture failed: \(error, privacy: .public)")
             }
         }
     }

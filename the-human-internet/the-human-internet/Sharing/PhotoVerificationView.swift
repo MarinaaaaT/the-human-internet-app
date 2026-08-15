@@ -121,7 +121,7 @@ struct PhotoVerificationView: View {
         do {
             photo = try await PhotoRepository.fetch(photoID: photoID)
         } catch {
-            debugPrint(error)
+            Log.photos.error("Verification-view photo fetch failed for \(photoID, privacy: .public): \(error, privacy: .public)")
         }
         isLoading = false
     }

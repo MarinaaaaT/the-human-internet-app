@@ -62,7 +62,7 @@ struct PrivacyEditSheet: View {
                 dismiss()
             } catch {
                 errorMessage = "Couldn't save — please try again."
-                debugPrint(error)
+                Log.settings.error("Privacy update failed: \(error, privacy: .public)")
             }
         }
     }

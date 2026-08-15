@@ -61,7 +61,7 @@ struct EditUsernameSheet: View {
                 errorMessage = UserProfileRepository.isUsernameConflict(error)
                     ? "That username is already taken."
                     : "Couldn't save — please try again."
-                debugPrint(error)
+                Log.settings.error("Username update failed: \(error, privacy: .public)")
             }
         }
     }

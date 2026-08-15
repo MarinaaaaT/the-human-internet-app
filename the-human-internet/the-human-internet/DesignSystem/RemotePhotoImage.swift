@@ -65,7 +65,7 @@ struct RemotePhotoImage: View {
                 loadedPath = photo.storagePath
             } catch {
                 didFail = true
-                debugPrint(error)
+                Log.photos.error("Download failed for \(photo.storagePath, privacy: .public): \(error, privacy: .public)")
             }
         }
     }

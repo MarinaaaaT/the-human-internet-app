@@ -104,7 +104,7 @@ struct OnboardingFlowView: View {
                 authErrorMessage = UserProfileRepository.isUsernameConflict(error)
                     ? "That username is already taken."
                     : "Couldn't save — please try again."
-                debugPrint(error)
+                Log.onboarding.error("Saving onboarding step failed: \(error, privacy: .public)")
             }
         }
     }

@@ -90,7 +90,7 @@ struct SettingsView: View {
                 dismiss()
             } catch {
                 signOutErrorMessage = "Please try again."
-                debugPrint(error)
+                Log.auth.error("Sign-out failed: \(error, privacy: .public)")
             }
         }
     }

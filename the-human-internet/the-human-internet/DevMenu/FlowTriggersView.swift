@@ -65,7 +65,7 @@ struct FlowTriggersView: View {
                 verificationURL = try await UserProfileRepository.createIdentityVerificationSession()
             } catch {
                 errorMessage = "Couldn't start verification — please try again."
-                debugPrint(error)
+                Log.devMenu.error("Creating identity verification session failed: \(error, privacy: .public)")
             }
             isCreatingSession = false
         }

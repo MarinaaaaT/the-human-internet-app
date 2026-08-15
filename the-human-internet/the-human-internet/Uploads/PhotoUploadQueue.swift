@@ -268,7 +268,7 @@ enum PhotoUploadQueue {
             } catch {
                 appState.processingPhotoIDs.remove(photoID)
                 appState.failedPhotoIDs.insert(photoID)
-                debugPrint(error)
+                Log.uploads.error("Upload failed for \(photoID, privacy: .public): \(error, privacy: .public)")
             }
         }
     }

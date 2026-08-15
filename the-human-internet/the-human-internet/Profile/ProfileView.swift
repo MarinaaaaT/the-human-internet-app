@@ -192,7 +192,7 @@ struct ProfileView: View {
                 selectedPhotoIDs.removeAll()
             } catch {
                 deleteError = "Please try again."
-                debugPrint(error)
+                Log.photos.error("Batch delete failed: \(error, privacy: .public)")
             }
         }
     }

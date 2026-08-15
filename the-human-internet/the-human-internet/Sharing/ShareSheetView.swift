@@ -149,7 +149,7 @@ struct ShareSheetView: View {
             showActivitySheet = true
         } catch {
             shareError = "Please try again."
-            debugPrint(error)
+            Log.sharing.error("Preparing share file failed: \(error, privacy: .public)")
         }
     }
 

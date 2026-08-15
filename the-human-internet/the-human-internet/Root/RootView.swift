@@ -79,7 +79,7 @@ struct RootView: View {
         do {
             try await appState.hydrate(userID: userID)
         } catch {
-            debugPrint(error)
+            Log.auth.error("Hydrate failed for \(userID, privacy: .public): \(error, privacy: .public)")
             appState.user = HumanUser(id: userID)
             appState.isOnboarded = false
         }
