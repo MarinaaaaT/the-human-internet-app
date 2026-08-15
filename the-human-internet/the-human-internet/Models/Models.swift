@@ -12,7 +12,12 @@ enum PrivacyLevel: String, CaseIterable, Identifiable, Codable, Hashable {
     var id: String { rawValue }
 }
 
+/// Identity verification is optional, so `unverified` — never started, or
+/// deliberately skipped — is a legitimate resting state rather than a stage on
+/// the way to `verified`. `inProgress` means "submitted to Stripe, awaiting the
+/// result", which only the stripe-identity-webhook Edge Function resolves.
 enum VerificationStatus: String, Codable, Hashable {
+    case unverified
     case inProgress = "in_progress"
     case verified
     case failed
@@ -36,7 +41,7 @@ struct HumanUser: Codable, Hashable {
     var profileIconIndex: Int = 0
     var phoneNumber: String = ""
     var privacy: PrivacyLevel = .public_
-    var verificationStatus: VerificationStatus = .inProgress
+    var verificationStatus: VerificationStatus = .unverified
     var onboardingStep: OnboardingStep = .profile
 
     enum CodingKeys: String, CodingKey {

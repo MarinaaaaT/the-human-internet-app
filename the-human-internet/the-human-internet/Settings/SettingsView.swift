@@ -10,9 +10,11 @@ struct SettingsView: View {
 
     @State private var showPrivacySheet = false
     @State private var showVerificationInfo = false
+    @State private var showIdentityVerification = false
     @State private var showEditUsername = false
     @State private var showSignOutConfirmation = false
     @State private var signOutErrorMessage: String?
+    @State private var saveErrorMessage: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -32,6 +34,22 @@ struct SettingsView: View {
                         showVerificationInfo = true
                     }
                     Divider().overlay(Color.white.opacity(0.08))
+
+                    // Verification is optional and skippable during onboarding,
+                    // so this is the way back to it. Only offered to someone who
+                    // hasn't started — an in-progress user is waiting on the
+                    // webhook, and restarting would just orphan their session.
+                    if appState.user.verificationStatus == .unverified {
+                        settingsRow(
+                            title: "Identity Verification",
+                            value: "Verify Identity",
+                            valueColor: Theme.accentBlue,
+                            icon: "chevron.right"
+                        ) {
+                            showIdentityVerification = true
+                        }
+                        Divider().overlay(Color.white.opacity(0.08))
+                    }
 
                     Button {
                         showSignOutConfirmation = true
@@ -62,10 +80,25 @@ struct SettingsView: View {
             PrivacyEditSheet()
         }
         .sheet(isPresented: $showVerificationInfo) {
-            VerificationStatusSheet()
+            VerificationStatusSheet(status: appState.user.verificationStatus)
         }
         .sheet(isPresented: $showEditUsername) {
             EditUsernameSheet()
+        }
+        .sheet(isPresented: $showIdentityVerification) {
+            // "Not now" rather than "Skip": there's no flow to skip past here,
+            // the sheet just closes and the row stays available.
+            IdentityVerificationView(
+                skipTitle: "Not now",
+                onSkip: { showIdentityVerification = false },
+                onFinish: {
+                    showIdentityVerification = false
+                    // Unlike onboarding, nothing else upserts afterwards — the
+                    // phone number and the now-.inProgress status have to be
+                    // persisted here or they're lost on relaunch.
+                    saveProfile()
+                }
+            )
         }
         .confirmationDialog("Log out of the human internet?", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
             Button("Log Out", role: .destructive) {
@@ -80,6 +113,25 @@ struct SettingsView: View {
             Button("OK") { signOutErrorMessage = nil }
         } message: {
             Text(signOutErrorMessage ?? "Please try again.")
+        }
+        .alert(
+            "Couldn't save",
+            isPresented: Binding(get: { saveErrorMessage != nil }, set: { if !$0 { saveErrorMessage = nil } })
+        ) {
+            Button("OK") { saveErrorMessage = nil }
+        } message: {
+            Text(saveErrorMessage ?? "Please try again.")
+        }
+    }
+
+    private func saveProfile() {
+        Task {
+            do {
+                try await UserProfileRepository.upsert(appState.user)
+            } catch {
+                saveErrorMessage = "Your verification was submitted, but we couldn't update your profile. Please try again."
+                Log.settings.error("Saving profile after identity verification failed: \(error, privacy: .public)")
+            }
         }
     }
 
@@ -97,6 +149,7 @@ struct SettingsView: View {
 
     private var statusLabel: String {
         switch appState.user.verificationStatus {
+        case .unverified: return "Not verified"
         case .inProgress: return "In progress"
         case .verified: return "Verified"
         case .failed: return "Failed"
@@ -105,6 +158,9 @@ struct SettingsView: View {
 
     private var statusColor: Color {
         switch appState.user.verificationStatus {
+        // Not a warning colour — being unverified is a supported state, not
+        // something gone wrong.
+        case .unverified: return Theme.textSecondary
         case .inProgress: return Theme.warning
         case .verified: return Theme.success
         case .failed: return .red

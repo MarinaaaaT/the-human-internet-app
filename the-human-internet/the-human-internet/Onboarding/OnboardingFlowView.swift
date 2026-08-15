@@ -44,9 +44,15 @@ struct OnboardingFlowView: View {
                     // skips straight through, leaving verification_status at
                     // its default (pending) rather than getting users stuck.
                     if appState.isStripeIdentityVerificationEnabled {
-                        IdentityVerificationView {
-                            advance(to: .welcomeHuman)
-                        }
+                        // Both paths advance: verification is optional, so
+                        // skipping is a legitimate way through the step. The
+                        // difference is what `verificationStatus` is left at,
+                        // which IdentityVerificationView sets and `advance`
+                        // persists in the same upsert as the step itself.
+                        IdentityVerificationView(
+                            onSkip: { advance(to: .welcomeHuman) },
+                            onFinish: { advance(to: .welcomeHuman) }
+                        )
                     } else {
                         ZStack {
                             Theme.background.ignoresSafeArea()
