@@ -10,13 +10,18 @@ enum PhotoLibrarySaverError: Error {
     case accessDenied
 }
 
-/// Saves a captured photo to the user's own device Photos library — the
-/// fallback copy if the Supabase upload never finishes (app force-quit,
-/// deleted, etc. before the queue can complete it).
+/// Saves a captured photo to the user's own device Photos library so they
+/// don't lose their pictures — nothing more. This copy is deliberately the
+/// raw capture: no watermark and **no C2PA manifest**, since the watermark
+/// has to be burned in before signing and nobody but the user ever sees
+/// this copy. It carries no provenance claim and can't be verified — only
+/// the hosted copy can. `PhotoUploadQueue` is what durably persists the
+/// signed bytes and resumes them across launches; don't treat anything in
+/// the library as a verifiable fallback for that.
 enum PhotoLibrarySaver {
-    /// Writes the exact signed JPEG bytes via `PHAssetCreationRequest`
-    /// rather than round-tripping through `UIImage`, which would re-encode
-    /// the file and strip the embedded C2PA manifest.
+    /// Writes the capture's own bytes via `PHAssetCreationRequest` rather
+    /// than round-tripping through `UIImage`, which would recompress the
+    /// photo and drop its EXIF.
     static func save(imageData: Data) async throws {
         guard await isAuthorized() else { throw PhotoLibrarySaverError.accessDenied }
 
