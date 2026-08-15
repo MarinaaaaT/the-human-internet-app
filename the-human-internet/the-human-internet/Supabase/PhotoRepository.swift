@@ -80,4 +80,16 @@ enum PhotoRepository {
             .execute()
         try? await supabase.storage.from("photos").remove(paths: [photo.storagePath])
     }
+
+    /// Batched sibling of `delete(photo:)` — same DB-row-first, storage-is-best-effort
+    /// ordering, for the Profile grid's multi-select delete.
+    static func delete(photos: [VerifiedPhoto]) async throws {
+        guard !photos.isEmpty else { return }
+        try await supabase
+            .from("photos")
+            .delete()
+            .in("id", values: photos.map(\.id))
+            .execute()
+        try? await supabase.storage.from("photos").remove(paths: photos.map(\.storagePath))
+    }
 }

@@ -6,7 +6,14 @@
 import SwiftUI
 
 struct PhotoThumbnail: View {
+    /// `.inactive` is the grid's normal state — no indicator at all. The
+    /// other two only appear while `ProfileView` is in selection mode.
+    enum SelectionState {
+        case inactive, unselected, selected
+    }
+
     let photo: VerifiedPhoto
+    var selectionState: SelectionState = .inactive
 
     @Environment(AppState.self) private var appState
 
@@ -20,10 +27,42 @@ struct PhotoThumbnail: View {
             // (width, width) square; the inner `RemotePhotoImage` still
             // fills *that* square and gets clipped to it below.
             .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                if selectionState == .selected {
+                    Color.black.opacity(0.25)
+                }
+            }
             .clipped()
+            // Top-trailing, because bottom-trailing is already the
+            // upload-status badge's corner.
+            .overlay(alignment: .topTrailing) {
+                selectionIndicator
+            }
             .overlay(alignment: .bottomTrailing) {
                 statusBadge
             }
+    }
+
+    @ViewBuilder
+    private var selectionIndicator: some View {
+        switch selectionState {
+        case .inactive:
+            EmptyView()
+        case .unselected:
+            Image(systemName: "circle")
+                .font(.system(size: 20))
+                .foregroundStyle(.white)
+                // Backing disc so the outline stays visible on a light photo,
+                // same trick the status badge below uses.
+                .background(.black.opacity(0.35), in: Circle())
+                .padding(8)
+        case .selected:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, Theme.accentBlue)
+                .padding(8)
+        }
     }
 
     @ViewBuilder
