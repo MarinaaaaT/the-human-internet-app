@@ -55,6 +55,15 @@ struct HumanUser: Codable, Hashable {
 /// Humans Only photos, so visibility only matters on the (separate,
 /// signed-out) web verification page, which would join to the owner's
 /// `users.privacy` rather than duplicating it per-photo.
+/// Where a photo is in the capture → sign → upload pipeline, as far as the
+/// UI is concerned. Derived from `AppState`'s two ID sets by
+/// `AppState.uploadState(for:)` rather than stored — the sets stay the
+/// source of truth, this is the one shape views need. An enum because the
+/// three states are mutually exclusive, which two booleans wouldn't express.
+enum PhotoUploadState {
+    case idle, processing, failed
+}
+
 struct VerifiedPhoto: Identifiable, Codable, Hashable {
     var id: UUID
     var userID: UUID

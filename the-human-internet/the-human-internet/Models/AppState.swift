@@ -46,6 +46,15 @@ final class AppState {
     var processingPhotoIDs: Set<UUID> = []
     var failedPhotoIDs: Set<UUID> = []
 
+    /// Collapses the two ID sets above into the single state a photo tile
+    /// renders, so views receive a value instead of reaching into `AppState`
+    /// and re-deriving the same precedence themselves.
+    func uploadState(for photoID: UUID) -> PhotoUploadState {
+        if processingPhotoIDs.contains(photoID) { return .processing }
+        if failedPhotoIDs.contains(photoID) { return .failed }
+        return .idle
+    }
+
     /// Set from a `thehumaninternet://photo/{id}` link. Drives a root-level
     /// fullScreenCover so it can present over whatever's currently on screen —
     /// dismissing it clears this, so the link has to be tapped again to reopen it.

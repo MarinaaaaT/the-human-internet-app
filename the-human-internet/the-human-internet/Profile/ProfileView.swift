@@ -58,7 +58,11 @@ struct ProfileView: View {
                                     photo: photo,
                                     selectionState: isSelecting
                                         ? (selectedPhotoIDs.contains(photo.id) ? .selected : .unselected)
-                                        : .inactive
+                                        : .inactive,
+                                    uploadState: appState.uploadState(for: photo.id),
+                                    onRetry: {
+                                        PhotoUploadQueue.retry(photoID: photo.id, appState: appState)
+                                    }
                                 )
                                 .contentShape(Rectangle())
                                 // `NavigationLink` has its own built-in tap

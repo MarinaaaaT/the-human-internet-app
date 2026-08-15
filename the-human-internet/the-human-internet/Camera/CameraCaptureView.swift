@@ -90,7 +90,13 @@ struct CameraCaptureView: View {
                     HStack {
                         if let last = appState.photos.first {
                             NavigationLink(value: last) {
-                                PhotoThumbnail(photo: last)
+                                PhotoThumbnail(
+                                    photo: last,
+                                    uploadState: appState.uploadState(for: last.id),
+                                    onRetry: {
+                                        PhotoUploadQueue.retry(photoID: last.id, appState: appState)
+                                    }
+                                )
                                     .frame(width: 48, height: 48)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.2), lineWidth: 1))

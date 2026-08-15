@@ -14,8 +14,11 @@ struct PhotoThumbnail: View {
 
     let photo: VerifiedPhoto
     var selectionState: SelectionState = .inactive
-
-    @Environment(AppState.self) private var appState
+    /// Passed in rather than read from `AppState` — this is a leaf
+    /// presentational view. See `AppState.uploadState(for:)`.
+    var uploadState: PhotoUploadState = .idle
+    /// Only invoked from the `.failed` badge.
+    var onRetry: () -> Void = {}
 
     var body: some View {
         RemotePhotoImage(photo: photo)
@@ -67,16 +70,19 @@ struct PhotoThumbnail: View {
 
     @ViewBuilder
     private var statusBadge: some View {
-        if appState.processingPhotoIDs.contains(photo.id) {
+        switch uploadState {
+        case .idle:
+            EmptyView()
+        case .processing:
             ProgressView()
                 .tint(.white)
                 .scaleEffect(0.7)
                 .padding(6)
                 .background(.black.opacity(0.45), in: Circle())
                 .padding(6)
-        } else if appState.failedPhotoIDs.contains(photo.id) {
+        case .failed:
             Button {
-                PhotoUploadQueue.retry(photoID: photo.id, appState: appState)
+                onRetry()
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .bold))
@@ -92,5 +98,4 @@ struct PhotoThumbnail: View {
 #Preview {
     PhotoThumbnail(photo: VerifiedPhoto(id: UUID(), userID: UUID(), storagePath: "preview/example.jpg", capturedAt: .now, verificationDeepLink: "thehumaninternet://photo/preview", shortCode: "preview1"))
         .frame(width: 120, height: 120)
-        .environment(AppState())
 }
