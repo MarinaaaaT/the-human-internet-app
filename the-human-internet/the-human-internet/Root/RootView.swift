@@ -65,7 +65,8 @@ struct RootView: View {
     /// apple-app-site-association file — this parsing/presentation logic stays
     /// the same either way.
     private func handle(url: URL) {
-        guard url.scheme == "thehumaninternet", url.host == "photo" else { return }
+        guard url.scheme == VerifiedPhoto.deepLinkScheme,
+              url.host == VerifiedPhoto.deepLinkHost else { return }
         guard let id = UUID(uuidString: url.lastPathComponent) else { return }
         appState.deepLinkedPhoto = DeepLinkedPhoto(id: id)
     }

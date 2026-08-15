@@ -90,6 +90,30 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
     /// website's `/[photoId]` route.
     private static let webHost = "the-human-internet.com"
 
+    /// Custom URL scheme registered in `Info.plist`. Swaps to a Universal
+    /// Link once the website hosts an apple-app-site-association file.
+    static let deepLinkScheme = "thehumaninternet"
+    /// The `photo` in `thehumaninternet://photo/{id}` — a URL host, not a
+    /// path component, which is what `RootView.handle(url:)` matches on.
+    static let deepLinkHost = "photo"
+
+    /// Storage object path for a photo: `{user_id}/{photo_id}.jpg`.
+    ///
+    /// Both components are lowercased to match Postgres's canonical uuid text
+    /// rendering — Swift's `UUID.uuidString` is uppercase. The Storage RLS
+    /// policy casts to `uuid` and so compares by value regardless, but an
+    /// earlier case-sensitive version of that policy silently rejected every
+    /// upload, so the client stays consistent defensively.
+    static func storagePath(userID: UUID, photoID: UUID) -> String {
+        "\(userID.uuidString.lowercased())/\(photoID.uuidString.lowercased()).jpg"
+    }
+
+    /// In-app deep link for a photo. Lowercased for the same reason as
+    /// `storagePath`.
+    static func deepLink(photoID: UUID) -> String {
+        "\(deepLinkScheme)://\(deepLinkHost)/\(photoID.uuidString.lowercased())"
+    }
+
     /// Base58 (Bitcoin alphabet, no 0/O/I/l — avoids visual ambiguity when
     /// read aloud or handwritten) so an 8-character code still has ~1.3×10^14
     /// possible values. The DB also has a matching CHECK constraint and a
@@ -114,5 +138,29 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
     /// Can't fail to construct: the host is a literal and the path is a UUID.
     var verificationURL: URL {
         URL(string: "https://\(verificationLink)")!
+    }
+}
+
+extension VerifiedPhoto {
+    /// The initializer every real (non-preview, non-test) photo goes through.
+    ///
+    /// `storagePath` and `verificationDeepLink` are derived rather than passed
+    /// in, so the two formats can't drift between the three places a photo
+    /// gets constructed — `PhotoRepository.upload` and `PhotoUploadQueue`'s
+    /// enqueue and resume paths. Both are part of a contract that outlives the
+    /// app: the storage path is matched by a Storage RLS policy, and links
+    /// already shared in the wild can't be re-minted.
+    ///
+    /// Defined in an extension so the memberwise initializer survives — the
+    /// previews and tests that need to construct an arbitrary path still use it.
+    init(id: UUID, userID: UUID, capturedAt: Date, shortCode: String) {
+        self.init(
+            id: id,
+            userID: userID,
+            storagePath: Self.storagePath(userID: userID, photoID: id),
+            capturedAt: capturedAt,
+            verificationDeepLink: Self.deepLink(photoID: id),
+            shortCode: shortCode
+        )
     }
 }

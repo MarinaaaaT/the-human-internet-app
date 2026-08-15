@@ -17,25 +17,14 @@ enum PhotoRepository {
     /// upsert, so calling this twice for the same `photoID` (e.g. the
     /// process died between the two) is harmless.
     static func upload(imageData: Data, photoID: UUID, userID: UUID, capturedAt: Date, shortCode: String) async throws -> VerifiedPhoto {
-        // Lowercased to match Postgres's canonical uuid text rendering — Swift's
-        // UUID.uuidString is uppercase, which the Storage RLS policy casts to
-        // uuid to compare by value regardless, but keeping this consistent too.
-        let path = "\(userID.uuidString.lowercased())/\(photoID.uuidString.lowercased()).jpg"
+        let photo = VerifiedPhoto(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode)
 
+        // Uploaded to the path the photo itself carries, so the object and the
+        // row can't disagree about where the bytes live.
         try await supabase.storage
             .from("photos")
-            .upload(path, data: imageData, options: FileOptions(contentType: "image/jpeg", upsert: true))
+            .upload(photo.storagePath, data: imageData, options: FileOptions(contentType: "image/jpeg", upsert: true))
 
-        let photo = VerifiedPhoto(
-            id: photoID,
-            userID: userID,
-            storagePath: path,
-            capturedAt: capturedAt,
-            // Lowercased for the same reason as the storage path above —
-            // consistency with Postgres's canonical uuid text rendering.
-            verificationDeepLink: "thehumaninternet://photo/\(photoID.uuidString.lowercased())",
-            shortCode: shortCode
-        )
         try await supabase
             .from("photos")
             .upsert(photo, onConflict: "id")

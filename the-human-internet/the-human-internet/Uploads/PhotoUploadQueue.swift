@@ -117,14 +117,7 @@ enum PhotoUploadQueue {
 
         drive(photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, appState: appState)
 
-        return VerifiedPhoto(
-            id: photoID,
-            userID: userID,
-            storagePath: storagePath(userID: userID, photoID: photoID),
-            capturedAt: capturedAt,
-            verificationDeepLink: "thehumaninternet://photo/\(photoID.uuidString.lowercased())",
-            shortCode: shortCode
-        )
+        return VerifiedPhoto(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode)
     }
 
     /// Resumes any uploads left pending by a prior force-quit or crash.
@@ -136,14 +129,7 @@ enum PhotoUploadQueue {
         sweep(currentUserID: userID)
         for item in loadManifest() where item.userID == userID {
             if !appState.photos.contains(where: { $0.id == item.id }) {
-                let photo = VerifiedPhoto(
-                    id: item.id,
-                    userID: item.userID,
-                    storagePath: storagePath(userID: item.userID, photoID: item.id),
-                    capturedAt: item.capturedAt,
-                    verificationDeepLink: "thehumaninternet://photo/\(item.id.uuidString.lowercased())",
-                    shortCode: item.shortCode
-                )
+                let photo = VerifiedPhoto(id: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode)
                 appState.photos.append(photo)
             }
             drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
@@ -292,10 +278,6 @@ enum PhotoUploadQueue {
         guard let index = manifest.firstIndex(where: { $0.id == photoID }) else { return }
         manifest[index].isSigned = true
         saveManifest(manifest)
-    }
-
-    private static func storagePath(userID: UUID, photoID: UUID) -> String {
-        "\(userID.uuidString.lowercased())/\(photoID.uuidString.lowercased()).jpg"
     }
 
     private static func fileURL(for photoID: UUID) -> URL {

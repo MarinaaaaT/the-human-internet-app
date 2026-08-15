@@ -60,4 +60,59 @@ struct VerifiedPhotoLinkTests {
         #expect(photo.verificationURL.absoluteString != photo.verificationDeepLink)
         #expect(photo.verificationURL.scheme != "thehumaninternet")
     }
+
+    // MARK: - Derived formats
+    //
+    // The deriving initializer is what `PhotoRepository.upload` and
+    // `PhotoUploadQueue`'s enqueue/resume paths all go through, so pinning it
+    // here pins all three at once. Both formats are contracts that outlive any
+    // one build: the storage path is matched by a Storage RLS policy, and the
+    // deep link is baked into links already shared in the wild.
+
+    @Test func derivedStoragePathIsUserThenPhotoLowercasedJPEG() {
+        let userID = UUID()
+        let photoID = UUID()
+        let photo = VerifiedPhoto(id: photoID, userID: userID, capturedAt: .now, shortCode: "aB3xK9mP")
+
+        #expect(photo.storagePath == "\(userID.uuidString.lowercased())/\(photoID.uuidString.lowercased()).jpg")
+        // Lowercase matters: Postgres renders `auth.uid()::text` lowercase,
+        // and a case-sensitive comparison in the original RLS policy silently
+        // rejected every upload.
+        #expect(photo.storagePath == photo.storagePath.lowercased())
+    }
+
+    @Test func derivedDeepLinkUsesTheRegisteredSchemeAndPhotoHost() throws {
+        let photoID = UUID()
+        let photo = VerifiedPhoto(id: photoID, userID: UUID(), capturedAt: .now, shortCode: "aB3xK9mP")
+
+        let url = try #require(URL(string: photo.verificationDeepLink))
+        #expect(url.scheme == "thehumaninternet")
+        #expect(url.host == "photo")
+        // `RootView.handle(url:)` parses the id back out of the last path
+        // component — a format change that breaks this breaks every deep
+        // link already shared.
+        #expect(UUID(uuidString: url.lastPathComponent) == photoID)
+    }
+
+    @Test func derivedInitAgreesWithTheStandaloneFormatHelpers() {
+        let userID = UUID()
+        let photoID = UUID()
+        let photo = VerifiedPhoto(id: photoID, userID: userID, capturedAt: .now, shortCode: "aB3xK9mP")
+
+        #expect(photo.storagePath == VerifiedPhoto.storagePath(userID: userID, photoID: photoID))
+        #expect(photo.verificationDeepLink == VerifiedPhoto.deepLink(photoID: photoID))
+    }
+
+    @Test func derivedInitPreservesIdentityFields() {
+        let userID = UUID()
+        let photoID = UUID()
+        let capturedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let photo = VerifiedPhoto(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: "aB3xK9mP")
+
+        #expect(photo.id == photoID)
+        #expect(photo.userID == userID)
+        #expect(photo.capturedAt == capturedAt)
+        // Generated once at enqueue time and carried through retries unchanged.
+        #expect(photo.shortCode == "aB3xK9mP")
+    }
 }
