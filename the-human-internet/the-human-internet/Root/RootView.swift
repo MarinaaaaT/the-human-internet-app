@@ -49,13 +49,26 @@ struct RootView: View {
         }
         .task {
             // Supabase persists the session (Keychain-backed) across launches on its own.
-            // `.initialSession` fires once, right after the client attempts to restore it.
-            for await state in supabase.auth.authStateChanges where state.event == .initialSession {
-                if let userID = state.session?.user.id {
-                    await resolveProfile(userID: userID)
+            // `.initialSession` fires once, right after the client attempts to restore
+            // it — but the loop keeps running for the life of the view afterward, since
+            // a session revoked elsewhere (or a failed background token refresh) shows
+            // up later on this same stream as `.signedOut`, and otherwise went unnoticed:
+            // the app just kept showing stale local state and failing every request.
+            for await state in supabase.auth.authStateChanges {
+                switch state.event {
+                case .initialSession:
+                    if let userID = state.session?.user.id {
+                        await resolveProfile(userID: userID)
+                    }
+                    isRestoringSession = false
+                case .signedOut:
+                    // Ignore before the initial restore finishes — there's no prior
+                    // session to have been revoked yet, and appState is already fresh.
+                    guard !isRestoringSession else { continue }
+                    appState.handleSessionInvalidated()
+                default:
+                    break
                 }
-                isRestoringSession = false
-                break
             }
         }
     }
