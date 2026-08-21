@@ -23,6 +23,11 @@ enum PrivacyLevel: String, CaseIterable, Identifiable, Codable, Hashable {
 /// column's default, so it's what any row the app didn't write itself
 /// carries — and leaving it out of this enum is exactly what broke Sign in
 /// with Apple (see `DatabaseEnum`).
+///
+/// Identity verification is optional, so `unverified` — never started, or
+/// deliberately skipped — is a legitimate resting state rather than a stage on
+/// the way to `verified`. `inProgress` means "submitted to Stripe, awaiting the
+/// result", which only the stripe-identity-webhook Edge Function resolves.
 enum VerificationStatus: String, Codable, Hashable {
     case unverified
     case inProgress = "in_progress"
@@ -97,7 +102,7 @@ struct HumanUser: Codable, Hashable {
     var profileIconIndex: Int = 0
     var phoneNumber: String = ""
     var privacy: PrivacyLevel = .public_
-    var verificationStatus: VerificationStatus = .inProgress
+    var verificationStatus: VerificationStatus = .unverified
     var onboardingStep: OnboardingStep = .profile
 
     enum CodingKeys: String, CodingKey {

@@ -5,8 +5,17 @@
 
 import SwiftUI
 
+/// The gate in front of Stripe's hosted flow: explains that verification is
+/// optional and offers a way past it. Used both as onboarding's `.verify` step
+/// and, for someone who skipped, from Settings — hence `skipTitle`, the only
+/// thing that differs between the two contexts.
 struct IdentityVerificationView: View {
     @Environment(AppState.self) private var appState
+    /// "Skip" mid-onboarding, "Not now" when this is reachable again later.
+    var skipTitle: String = "Skip"
+    var onSkip: () -> Void
+    /// Called once Stripe redirects back, meaning the user submitted. The
+    /// verified/failed outcome lands later, via the webhook.
     var onFinish: () -> Void
 
     @State private var phoneNumber = ""
@@ -23,10 +32,13 @@ struct IdentityVerificationView: View {
             Theme.background.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Verify your identity")
+                    Text("Verify your identity (optional)")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(.white)
-                    Text("You'll scan a government-issued ID and take a quick selfie. It will not be publicly visible and remains completely private.")
+                    Text("Identity verification on our site is 100% optional. However, if you would ever like to use our site to make claims about the ownership of your content, you will need to verify your identity.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("If you do verify, you'll scan a government-issued ID and take a quick selfie. It will not be publicly visible and remains completely private.")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -38,12 +50,21 @@ struct IdentityVerificationView: View {
 
                 Spacer()
 
-                PrimaryButton(
-                    title: isCreatingSession ? "Starting verification…" : "Verify with ID",
-                    isEnabled: isValid && !isCreatingSession
-                ) {
-                    appState.user.phoneNumber = phoneNumber
-                    startVerification()
+                VStack(spacing: 12) {
+                    PrimaryButton(
+                        title: isCreatingSession ? "Starting verification…" : "Verify Identity",
+                        isEnabled: isValid && !isCreatingSession
+                    ) {
+                        appState.user.phoneNumber = phoneNumber
+                        startVerification()
+                    }
+
+                    SecondaryButton(title: skipTitle) {
+                        // Leaves verificationStatus at .unverified — skipping is
+                        // a resting state, not a pending one.
+                        onSkip()
+                    }
+                    .disabled(isCreatingSession)
                 }
             }
             .padding(24)
@@ -60,7 +81,13 @@ struct IdentityVerificationView: View {
             )
         ) {
             if let verificationURL {
-                StripeIdentityWebView(url: verificationURL, onComplete: onFinish)
+                StripeIdentityWebView(url: verificationURL) {
+                    // Submitted — now genuinely pending until the
+                    // stripe-identity-webhook Edge Function resolves it. The
+                    // caller is responsible for persisting this.
+                    appState.user.verificationStatus = .inProgress
+                    onFinish()
+                }
             }
         }
         .alert(
@@ -92,7 +119,7 @@ struct IdentityVerificationView: View {
 
 #Preview {
     NavigationStack {
-        IdentityVerificationView(onFinish: {})
+        IdentityVerificationView(onSkip: {}, onFinish: {})
             .environment(AppState())
     }
 }
