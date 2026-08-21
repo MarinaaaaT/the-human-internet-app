@@ -97,6 +97,7 @@ struct SettingsView: View {
 
     private var statusLabel: String {
         switch appState.user.verificationStatus {
+        case .unverified: return "Unverified"
         case .inProgress: return "In progress"
         case .verified: return "Verified"
         case .failed: return "Failed"
@@ -105,6 +106,9 @@ struct SettingsView: View {
 
     private var statusColor: Color {
         switch appState.user.verificationStatus {
+        // Neutral rather than amber: not-yet-started is a resting state, not
+        // something in flight that the user should be watching.
+        case .unverified: return Theme.textSecondary
         case .inProgress: return Theme.warning
         case .verified: return Theme.success
         case .failed: return .red
