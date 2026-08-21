@@ -11,20 +11,14 @@ struct FeatureFlagsView: View {
 
     var body: some View {
         List {
-            Toggle(
-                "Stripe Identity Verification",
-                isOn: Binding(
-                    get: { appState.isStripeIdentityVerificationEnabled },
-                    set: { setFlag(FeatureFlagKey.stripeIdentityVerification, to: $0) }
-                )
-            )
-            Toggle(
-                "AWS Server Side Signing",
-                isOn: Binding(
-                    get: { appState.isAWSServerSideSigningEnabled },
-                    set: { setFlag(FeatureFlagKey.awsServerSideSigning, to: $0) }
-                )
-            )
+            Section {
+                flagPicker("Stripe Identity Verification", key: FeatureFlagKey.stripeIdentityVerification)
+                flagPicker("AWS Server Side Signing", key: FeatureFlagKey.awsServerSideSigning)
+            } footer: {
+                Text("All: on for every user. Admin: on only for admin accounts — use it to try a change against real data before everyone gets it. Off: on for nobody.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+            }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
@@ -40,16 +34,39 @@ struct FeatureFlagsView: View {
         }
     }
 
+    /// Reads `audience(for:)` rather than the resolved `is…Enabled` bool: the
+    /// picker edits what the *server* holds, which for an `.admin` flag isn't
+    /// the same thing as whether it's on for whoever is looking at it.
+    private func flagPicker(_ title: String, key: String) -> some View {
+        Picker(
+            title,
+            selection: Binding(
+                get: { appState.audience(for: key) },
+                set: { setAudience(key, to: $0) }
+            )
+        ) {
+            ForEach(FeatureFlagAudience.allCases) { audience in
+                Text(audience.label).tag(audience)
+            }
+        }
+        .pickerStyle(.menu)
+        .tint(Theme.accentBlue)
+    }
+
     /// Optimistic, revert-on-failure — same pattern as
     /// `OnboardingFlowView.advance(to:)`. This writes through
     /// `FeatureFlagRepository`, which RLS restricts to admins only, so a
     /// failure here most likely means `appState.isAdmin` is stale.
-    private func setFlag(_ key: String, to enabled: Bool) {
+    ///
+    /// Reverting assigns the previous `FeatureFlagAudience?` back, so a flag
+    /// that was never in the dictionary returns to being absent rather than
+    /// getting pinned to whatever fallback the picker happened to display.
+    private func setAudience(_ key: String, to audience: FeatureFlagAudience) {
         let previous = appState.featureFlags[key]
-        appState.featureFlags[key] = enabled
+        appState.featureFlags[key] = audience
         Task {
             do {
-                try await FeatureFlagRepository.setEnabled(key: key, enabled: enabled)
+                try await FeatureFlagRepository.setAudience(key: key, audience: audience)
             } catch {
                 appState.featureFlags[key] = previous
                 errorMessage = "Please try again."

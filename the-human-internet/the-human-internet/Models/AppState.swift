@@ -19,23 +19,40 @@ final class AppState {
     var isAdmin = false
 
     /// Remote feature flags, keyed by `FeatureFlagKey`. Populated on every
-    /// hydrate so a flag flipped by an admin takes effect for other users on
+    /// hydrate so a flag changed by an admin takes effect for other users on
     /// their next launch/sign-in without an app update.
-    var featureFlags: [String: Bool] = [:]
+    ///
+    /// An audience rather than a bool, so a flag can be switched on for admin
+    /// accounts only — see `FeatureFlagAudience`. A key absent here means the
+    /// server had nothing this build could use for it, and
+    /// `FeatureFlagKey.fallbackAudience(for:)` decides what that means.
+    var featureFlags: [String: FeatureFlagAudience] = [:]
 
-    /// Fails secure: if flags haven't loaded (or the key is missing), this
-    /// defaults to `true` — same as verification being required today —
-    /// rather than silently letting onboarding skip a step on a fetch glitch.
-    var isStripeIdentityVerificationEnabled: Bool {
-        featureFlags[FeatureFlagKey.stripeIdentityVerification] ?? true
+    /// The audience a flag currently carries — the *unresolved* server value,
+    /// which is what the developer menu's picker shows and edits. Use the
+    /// `is…Enabled` properties below to ask whether a flag is on for the
+    /// person actually using the app.
+    func audience(for key: String) -> FeatureFlagAudience {
+        featureFlags[key] ?? FeatureFlagKey.fallbackAudience(for: key)
     }
 
-    /// Fails secure the other direction from the flag above: defaults to
-    /// `false` (on-device signing) if flags haven't loaded, since the AWS
-    /// signing path is opt-in while it's being stood up, not a fallback to
-    /// avoid depending on.
+    /// Resolves a flag against this user. `.admin` reads `isAdmin`, which
+    /// `hydrate` fetches *before* the flags, so the two are never out of step.
+    private func isEnabled(_ key: String) -> Bool {
+        audience(for: key).includes(isAdmin: isAdmin)
+    }
+
+    /// Fails secure toward requiring verification — see
+    /// `FeatureFlagKey.fallbackAudience(for:)` for the direction each flag
+    /// falls back in, and why they differ.
+    var isStripeIdentityVerificationEnabled: Bool {
+        isEnabled(FeatureFlagKey.stripeIdentityVerification)
+    }
+
+    /// Fails secure the other direction from the flag above — on-device
+    /// signing, not the remote path.
     var isAWSServerSideSigningEnabled: Bool {
-        featureFlags[FeatureFlagKey.awsServerSideSigning] ?? false
+        isEnabled(FeatureFlagKey.awsServerSideSigning)
     }
 
     /// IDs of photos in `photos` that are still being signed and/or
