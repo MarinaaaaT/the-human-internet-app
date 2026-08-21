@@ -5,26 +5,87 @@
 
 import Foundation
 
+/// Values mirror the `users_privacy_check` constraint on `public.users`.
 enum PrivacyLevel: String, CaseIterable, Identifiable, Codable, Hashable {
     case public_ = "Public"
     case humansOnly = "Humans Only"
 
     var id: String { rawValue }
+
+    /// Falls back to the *more* private of the two — see `DatabaseEnum`.
+    init(from decoder: Decoder) throws {
+        self = try DatabaseEnum.decode(from: decoder, fallback: .humansOnly)
+    }
 }
 
+/// Values mirror the `users_verification_status_check` constraint on
+/// `public.users`, which permits all four of these. `unverified` is that
+/// column's default, so it's what any row the app didn't write itself
+/// carries — and leaving it out of this enum is exactly what broke Sign in
+/// with Apple (see `DatabaseEnum`).
 enum VerificationStatus: String, Codable, Hashable {
+    case unverified
     case inProgress = "in_progress"
     case verified
     case failed
+
+    /// Falls back to `unverified`: a status this build can't read must never
+    /// be mistaken for a verified human, which is the one claim the whole
+    /// product rests on.
+    init(from decoder: Decoder) throws {
+        self = try DatabaseEnum.decode(from: decoder, fallback: .unverified)
+    }
 }
 
 /// Mirrors an onboarding_step value in the `users` table, so progress can be
-/// resumed after the app is killed mid-flow.
+/// resumed after the app is killed mid-flow. Values mirror the
+/// `users_onboarding_step_check` constraint on `public.users`.
 enum OnboardingStep: String, Codable, Hashable {
     case profile
     case verify
     case welcomeHuman = "welcome_human"
     case completed
+
+    /// Falls back to the *first* step rather than a later one: replaying
+    /// onboarding is recoverable, whereas reading an unknown step as
+    /// `completed` would wave someone into the app having skipped it.
+    init(from decoder: Decoder) throws {
+        self = try DatabaseEnum.decode(from: decoder, fallback: .profile)
+    }
+}
+
+/// Shared decoding for the three enums above, each of which mirrors a
+/// Postgres `text` column whose permitted values are pinned by a CHECK
+/// constraint in the database rather than by anything in this app.
+///
+/// A synthesized `Decodable` conformance throws on any string it doesn't
+/// recognise, and that has real teeth here: `users.verification_status`
+/// defaults to `unverified` and its CHECK constraint allows it, but this
+/// enum listed only the other three. `AppState.hydrate` decodes the user row
+/// before anything else can happen, so that one unlisted value failed
+/// sign-in outright — "The data couldn't be read because it isn't in the
+/// correct format", with no way into the app to recover.
+///
+/// Sign-in is the worst possible place to be strict: a value added to a
+/// CHECK constraint reaches every already-installed build the moment it's
+/// written, long before any of them ship an update that knows about it. So
+/// an unrecognised value logs and degrades to a declared fallback instead of
+/// throwing. Each fallback is chosen to err toward claiming *less* about a
+/// user than the server said, never more.
+enum DatabaseEnum {
+    static func decode<Value: RawRepresentable>(
+        from decoder: Decoder,
+        fallback: Value
+    ) throws -> Value where Value.RawValue == String {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        guard let value = Value(rawValue: raw) else {
+            Log.auth.error(
+                "Unrecognised \(String(describing: Value.self), privacy: .public) value '\(raw, privacy: .public)' — falling back to '\(fallback.rawValue, privacy: .public)'"
+            )
+            return fallback
+        }
+        return value
+    }
 }
 
 /// Maps 1:1 to a row in the `users` table. Deliberately has no SSN field:
