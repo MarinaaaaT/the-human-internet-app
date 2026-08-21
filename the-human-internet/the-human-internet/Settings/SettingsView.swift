@@ -158,8 +158,9 @@ struct SettingsView: View {
 
     private var statusColor: Color {
         switch appState.user.verificationStatus {
-        // Not a warning colour — being unverified is a supported state, not
-        // something gone wrong.
+        // Neutral rather than amber: being unverified is a supported resting
+        // state — neither something gone wrong nor something in flight that
+        // the user should be watching.
         case .unverified: return Theme.textSecondary
         case .inProgress: return Theme.warning
         case .verified: return Theme.success
