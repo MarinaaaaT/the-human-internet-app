@@ -72,6 +72,18 @@ final class AppState {
             await PhotoUploadQueue.pruneOnSignOut(userID: userID)
         }
         try await supabase.auth.signOut()
+        handleSessionInvalidated()
+    }
+
+    /// Called when a previously-restored session goes invalid on its own —
+    /// revoked from another device, or a background token refresh failing —
+    /// rather than through an explicit user-initiated `signOut()`. Resets
+    /// the same local state `signOut()` does so RootView's `isOnboarded`
+    /// check falls back to the Welcome screen, but deliberately does
+    /// *not* call `PhotoUploadQueue.pruneOnSignOut`: this is still the same
+    /// person on the same device, just needing to re-authenticate, and the
+    /// pending-upload manifest already knows how to resume once they do.
+    func handleSessionInvalidated() {
         isOnboarded = false
         user = HumanUser()
         photos = []
