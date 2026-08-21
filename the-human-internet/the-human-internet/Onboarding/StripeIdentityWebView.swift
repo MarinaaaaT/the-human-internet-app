@@ -68,9 +68,24 @@ private struct IdentityWebView: UIViewRepresentable {
     /// Matches the scheme registered for `thehumaninternet://...` deep links.
     private static let returnScheme = "thehumaninternet"
 
+    /// This screen captures a government ID and a selfie, so navigation and
+    /// camera access are restricted to Stripe's own hosted Identity origin —
+    /// a redirect, an embedded third-party frame, or a future change on
+    /// Stripe's side must not be able to silently pick up camera/mic access
+    /// or steer this view. Stripe's hosted Identity flow is served from
+    /// `verify.stripe.com`; if a legitimate flow needs another host, add it
+    /// here explicitly rather than opening this up.
+    private static func isAllowedStripeHost(_ host: String?) -> Bool {
+        guard let host else { return false }
+        return host == "verify.stripe.com" || host.hasSuffix(".verify.stripe.com")
+    }
+
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
+        // Leaves nothing on disk once the sheet is dismissed — this session
+        // handles ID documents and selfies.
+        configuration.websiteDataStore = .nonPersistent()
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
@@ -99,9 +114,14 @@ private struct IdentityWebView: UIViewRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
-            if navigationAction.request.url?.scheme == IdentityWebView.returnScheme {
+            let requestURL = navigationAction.request.url
+            if requestURL?.scheme == IdentityWebView.returnScheme {
                 decisionHandler(.cancel)
                 onReturnURL()
+                return
+            }
+            guard requestURL?.scheme == "https", IdentityWebView.isAllowedStripeHost(requestURL?.host) else {
+                decisionHandler(.cancel)
                 return
             }
             decisionHandler(.allow)
@@ -121,7 +141,7 @@ private struct IdentityWebView: UIViewRepresentable {
 
         // Document + selfie capture inside the hosted Stripe page needs camera
         // access; NSCameraUsageDescription is already declared for the camera
-        // tab and covers this prompt too.
+        // tab and covers this prompt too. Only Stripe's own origin gets it.
         func webView(
             _ webView: WKWebView,
             requestMediaCapturePermissionFor origin: WKSecurityOrigin,
@@ -129,7 +149,7 @@ private struct IdentityWebView: UIViewRepresentable {
             type: WKMediaCaptureType,
             decisionHandler: @escaping (WKPermissionDecision) -> Void
         ) {
-            decisionHandler(.grant)
+            decisionHandler(IdentityWebView.isAllowedStripeHost(origin.host) ? .grant : .deny)
         }
     }
 }
