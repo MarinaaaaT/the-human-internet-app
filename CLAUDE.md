@@ -14,12 +14,16 @@ Native SwiftUI app for "the human internet" — photo verification proving a pho
 
 ```
 the-human-internet-app/              <- repo root, CLAUDE.md lives here
+  .github/workflows/testflight.yml    <- CI: push to main -> TestFlight
+  fastlane/                           <- Fastfile (beta / tests / signing_bootstrap), Appfile
+  Gemfile                             <- fastlane, for bundler-cache on the runner
+  docs/                               <- DEPLOYMENT.md (the pipeline), HANDOFF.md (how it got green)
   the-human-internet/                 <- Xcode project root (.xcodeproj lives here)
     the-human-internet.xcodeproj
     Info.plist                        <- manually authored, see "Info.plist gotcha" below
     the-human-internet/               <- actual app source (this is the Xcode "synced group")
       Onboarding/  Profile/  Settings/  Sharing/  Root/  Auth/  Supabase/
-      DesignSystem/  Models/  DevMenu/  Assets.xcassets/
+      DesignSystem/  Models/  DevMenu/  Logging/  Assets.xcassets/
       Camera/                         <- capture tab; Capture/ holds the AVFoundation
                                          session + the SwiftUI preview-layer bridge
       Uploads/                        <- the durable capture->upload pipeline
@@ -27,7 +31,8 @@ the-human-internet-app/              <- repo root, CLAUDE.md lives here
       Verification/                   <- C2PA signing + the bundled dev cert (has its
                                          own README — read it before touching the certs)
     the-human-internetTests/          <- PhotoSignerTests, RemotePhotoSignerTests,
-                                         VerifiedPhotoLinkTests
+                                         VerifiedPhotoLinkTests, HumanUserDecodingTests,
+                                         FeatureFlagAudienceTests
     the-human-internetUITests/
 ```
 
@@ -49,8 +54,16 @@ Passkeys were the original plan (matches the wireframes), but Supabase's passkey
 - **Dumb views + one coordinator.** Views take closures and don't know about navigation or Supabase (e.g. `WelcomeView` doesn't know what `onCompletion` does). `OnboardingFlowView` is the only view that owns a `NavigationStack` + knows the step sequence.
 - **Services/repositories for side effects**: `AppleAuthService` (Auth/), `UserProfileRepository` + `PhotoRepository` + `SupabaseClient` (Supabase/) — enums or `@Observable` classes, never touched directly by leaf views.
 - **One `AppState`** (`@Observable`, injected via `.environment`) holds `user`, `photos`, `isOnboarded`, `deepLinkedPhoto`, `isAdmin`, `featureFlags`, and the `processingPhotoIDs`/`failedPhotoIDs` sets the upload pipeline drives. No per-screen view models — added only if a screen's local `@State` actually gets unwieldy.
+- **Sign-out has two doors, and they behave differently.** `AppState.signOut()` is
+  the explicit, user-initiated one and prunes this user's pending uploads off
+  disk first. `AppState.handleSessionInvalidated()` is the involuntary one — a
+  session revoked from another device, or a background token refresh failing —
+  reached from `RootView`'s `authStateChanges` loop, which keeps running for the
+  life of the view rather than just reading `.initialSession`. It resets the same
+  local state but deliberately does **not** prune: it's the same person on the
+  same device needing to re-authenticate, and the manifest resumes once they do.
 - **`AppState.hydrate(userID:)` is the single source of truth** for "identity is authenticated → here's their profile + photos + flags + whether onboarding is done", and it also resumes any interrupted uploads. Both `RootView` (cold launch, session restored from Keychain) and `OnboardingFlowView` (fresh sign-in) call it. These *used to* be two separate copies of this logic and drifted apart (only one fetched photos, neither special-cased a returning fully-onboarded user) — fixed by collapsing into one method. If you touch sign-in/session logic, keep it that way.
-- **`DesignSystem/`** is the only place styling lives (`Theme.swift` colors, `Components.swift` buttons/fields, `BrandMark.swift` the logo, `PhotoWatermarker.swift` which burns that mark into captured pixels, `RemotePhotoImage.swift` for loading photos from Storage).
+- **`DesignSystem/`** is the only place styling lives (`Theme.swift` colors, `Components.swift` buttons/fields, `BrandMark.swift` the logo, `PhotoWatermarker.swift` which burns that mark into captured pixels, `RemotePhotoImage.swift` for loading photos from Storage). `RemotePhotoImage` takes an `isThumbnail` flag that opts into a shared downsampled cache (600px cap) — grid cells need it because a `LazyVGrid` destroys and recreates view identity on scroll, so without it re-scrolling a 50-photo grid re-downloaded and re-decoded everything at full resolution on every pass. Full-resolution contexts (detail, verification) deliberately don't participate: they're single long-lived views with nothing to cache, and they need the real pixels.
 
 ## What's built (MVP scaffold, functional end-to-end)
 
@@ -79,6 +92,12 @@ Things worth knowing before changing any of it:
 - **`PhotoRepository.upload` upserts** both the Storage object and the DB row, and takes `photoID`/`capturedAt`/`shortCode` from the caller — so a retry after a half-completed attempt reuses the exact same identity and is harmless.
 - **Signing/watermarking is capped at 2 concurrent** photos. Each holds a full-resolution bitmap (~100MB for a 12MP capture) and the shutter deliberately no longer serializes captures, so an uncapped burst of rapid taps was enough to get the app jetsammed. Nothing user-facing waits on this stage.
 - **Sign-out prunes this user's pending files** (`pruneOnSignOut`, called *before* the network sign-out so local cleanup happens even if that fails), so the next person on a shared device can't recover them. Deleting a photo calls `cancelPendingUpload` for the same reason — otherwise a resumed upload could resurrect a deleted photo.
+- **Pending entries expire; the manifest is not unbounded.** A user's own entry is
+  swept after 30 days (a permanently-failing upload — dead network, revoked auth,
+  a server rejection that never clears — must not sit on disk forever), a
+  *foreign* entry belonging to some other user after 7 days (assumed abandoned by
+  a session that ended before `pruneOnSignOut` could run), and the manifest caps
+  at 200 entries. All three live as constants at the top of `PhotoUploadQueue`.
 - **A copy also goes to the device Photos library** (`Uploads/PhotoLibrarySaver.swift`, add-only permission, fired and forgotten). That copy is deliberately the **raw capture — no watermark, no C2PA manifest** — since nobody but the user sees it. It carries no provenance claim and is *not* a verifiable fallback; only the hosted copy is.
 
 ## C2PA signing
@@ -154,13 +173,37 @@ When debugging anon access, test as the role — `set local role anon; select �
   - `aws_server_side_signing` (`FeatureFlagKey.awsServerSideSigning`) — **currently `all`.** On ⇒ `PhotoUploadQueue.drive()` signs via the `sign-photo` Edge Function → AWS KMS instead of the bundled dev key. Falls back to **`off`**, since the remote path is opt-in rather than something to silently fall into.
 - The dev menu's other entry, **Flow Triggers** (`DevMenu/FlowTriggersView.swift`), manually re-runs flows that normally only fire once mid-onboarding — currently just "Identity Verification", which calls the same `UserProfileRepository.createIdentityVerificationSession()` + `StripeIdentityWebView` pair `IdentityVerificationView` uses, for the *current* (already-onboarded) user. Saves resetting `onboarding_step` back to `'verify'` via SQL just to test the Stripe flow.
 
+## Shipping (TestFlight)
+
+Pushing to `main` archives, signs, and uploads to TestFlight with no Mac in the
+loop — GitHub Actions (`macos-15`) → `fastlane beta` → App Store Connect, build
+number `github.run_number`. **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) is the
+reference**; [`docs/HANDOFF.md`](docs/HANDOFF.md) records the failures hit
+getting it green, which is the faster read when a build goes red. Four things
+to know before touching any of it:
+
+- **Never add a `pull_request` trigger** (and above all not `pull_request_target`)
+  to `testflight.yml`. The repo is public and the job holds the distribution
+  signing secrets. PR-time CI belongs in a separate, secret-free workflow
+  running the `tests` lane.
+- **Manual signing goes through `update_code_signing_settings`, not `xcargs`.**
+  Both failure modes that forced the change are documented in DEPLOYMENT.md;
+  don't revert it.
+- **A pre-archive patch fixes `C2PAC.framework`'s `MinimumOSVersion`**, working
+  around an upstream `c2pa-swift` 0.0.12 packaging defect that App Store Connect
+  rejects as ITMS-90208. It must run on the resolved SPM artifact *before*
+  `build_app` — patching the signed output invalidates the signature. Re-check
+  it on any `c2pa-swift` bump.
+- **Re-running a failed run reuses its build number**, which Apple rejects as a
+  duplicate. Push a new commit instead.
+
 ## Known gaps / next steps (from the PRD, roughly in likely order)
 
 1. **A production C2PA certificate** — blocked on the C2PA Conformance Program, which is a business/compliance process, not code. Until then manifests read as untrusted, on-device and server-side alike. See the C2PA section above.
 2. ~~Prove identity verification — fully stubbed~~ now real, via Stripe Identity (see "Stripe Identity" section above). **Currently blocked**: the Stripe account's Identity Dashboard application can't be completed until Human Internet LLC finishes processing with Delaware State — tracked as "Urgent - Blocked" in Notion (Task Management > Product Backlog). Mitigation shipped: the `stripe_identity_verification` feature flag (see "Admin role, developer menu, and feature flags" above) lets onboarding skip the broken step until this clears — and since verification became optional (2026-08-15), users can skip it themselves regardless, so being blocked no longer gates anyone. There's still no in-app resubmission flow for a `failed` status.
 3. Universal Links — the website is deployed now, so this needs an `apple-app-site-association` file served from it plus an Associated Domains entitlement (currently `com.apple.developer.applesignin` only). Would let `the-human-internet.com/{id}` open the app directly instead of the custom scheme.
 4. ~~Real native share integration for the share-sheet icons~~ done — every icon now copies the link and hands the photo to the native share sheet (see "Sharing" above). What's still missing is per-platform behavior: the icons are labels on one generic path, not deep links into each app.
-5. Placeholder links still live on the marketing site — App Store URL, Join, step 3's CTA, and the Discord/donate/roadmap links, all centralised in the website's `src/content/site.ts`.
+5. Placeholder links still live on the marketing site, centralised so wiring each up is a one-line edit: App Store URL, the `Join` nav item, and the `EXTERNAL_LINKS` entries (`donate`, `roadmap`, `discord`, `introVideo` — a `null` renders as plain text rather than a broken URL) in the website's `src/content/site.ts`; step 3's CTA in `src/content/steps.ts`, which needs an example verification page to exist before it can point anywhere.
 6. Explicitly Phase 2 per the PRD, not in scope yet: followers/following, per-photo privacy, imported photos, Android, community believability scoring.
 
 ## Dev/testing notes for whoever picks this up
@@ -171,6 +214,6 @@ When debugging anon access, test as the role — `set local role anon; select �
 - **A test target must not re-link a package product its host app already links.** Adding `C2PA` to the test target's `packageProductDependencies` broke the test build with a missing-framework error. Reach the dependency through the app target via `@testable import` instead.
 - **DerivedData's folder hash can change** when project build settings change significantly (this happened after the Info.plist rework) — re-check the actual path via `xcodebuild -showBuildSettings` rather than assuming a previously-used path is still current; a stale path will make a fixed bug look unfixed. Note `PRODUCT_BUNDLE_IDENTIFIER` doesn't resolve in `-showBuildSettings` output here; read `CFBundleIdentifier` from the built `.app`'s Info.plist instead.
 - **`GENERATE_INFOPLIST_FILE=YES` + `INFOPLIST_FILE` "partial plist merge"** (a documented Xcode feature) did not actually merge custom keys in for this project/Xcode version — had to switch to a fully manual `Info.plist` with `GENERATE_INFOPLIST_FILE=NO` and every key (including the ones that used to be `INFOPLIST_KEY_*` build settings) written out by hand. That's why `the-human-internet/Info.plist` exists as a real file. It carries both usage descriptions: `NSCameraUsageDescription` and `NSPhotoLibraryAddUsageDescription` (add-only — the app never reads the library).
-- **Git push needs credentials this sandboxed session doesn't have.** Commits get made locally; run `git push origin main` from your own terminal or Xcode.
+- **Push over SSH, not the HTTPS `origin`.** The `origin` remote is an HTTPS URL and pushing to it fails with `could not read Username for 'https://github.com': Device not configured` — there's no credential helper wired up. `gh` is separately authenticated (SSH protocol), so `git push git@github.com:MarinaaaaT/the-human-internet-app.git <branch>` works from here, as do all `gh` subcommands. Verified 2026-08-23. Pushing to `main` triggers a real TestFlight build and consumes a build number, so push feature branches and let a PR merge do `main`.
 - Config already done in Xcode/Supabase/Vercel dashboards (not from this session, or done by the user mid-session): Sign in with Apple capability + entitlement, `DEVELOPMENT_TEAM` set, Apple provider configured in Supabase Auth, `supabase-swift` SPM package added (had to manually add the missing umbrella `Supabase` product — the picker only added the five sub-libraries), and the website's Vercel env vars + Next.js framework preset.
 - **`c2pa-swift` was added to `.pbxproj` by hand**, mirroring the `supabase-swift` pattern: one `XCRemoteSwiftPackageReference`, one `XCSwiftPackageProductDependency` for the `C2PA` product, a matching `PBXBuildFile`, appended to the app target's `PBXFrameworksBuildPhase` + `packageProductDependencies`, and referenced in `PBXProject.packageReferences`. Six edit sites. `plutil -lint` the file afterward — it catches a malformed edit instantly.

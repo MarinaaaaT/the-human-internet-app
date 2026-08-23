@@ -7,10 +7,12 @@ involved, which is the whole point: the loop is drivable from a phone.
 ```
 push to main ──> GitHub Actions (macos-15) ──> fastlane beta ──> TestFlight
                         │                          │
-                        │                          ├── match: read signing identity
-                        │                          ├── gym:   archive + sign
-                        │                          └── pilot: upload
-                        └── build number = github.run_number
+                        │                          ├── match:  read signing identity
+                        │                          ├── resolve SPM + patch C2PAC min-OS
+                        │                          ├── gym:    archive + sign
+                        │                          └── pilot:  upload
+                        │
+                        └── build number = github.run_number   ──> Discord (always)
 ```
 
 Manual runs: Actions tab → **TestFlight** → *Run workflow*. Same thing, off any
@@ -23,7 +25,13 @@ branch, without pushing.
 | [`.github/workflows/testflight.yml`](../.github/workflows/testflight.yml) | Trigger, runner, Xcode pin, caching, secret plumbing |
 | [`fastlane/Fastfile`](../fastlane/Fastfile) | `beta` (build + upload), `tests`, and `signing_bootstrap` lanes |
 | [`fastlane/Appfile`](../fastlane/Appfile) | Bundle id + team id |
-| `Gemfile` | Pins fastlane so a runner-image update can't silently change it |
+| `Gemfile` | Declares fastlane for `bundler-cache`. **Unpinned, and no `Gemfile.lock` is committed** — see below |
+
+The `Gemfile` is `gem "fastlane"` with no version constraint and there is no
+committed `Gemfile.lock`, so `bundler-cache: true` resolves fastlane fresh on a
+cache miss and a fastlane release can change CI behaviour with no commit in
+this repo. Committing a lockfile (`bundle lock`) is the fix if a build ever
+goes red with no change on this side.
 
 `the-human-internet.xcscheme` lives in the project's `xcshareddata/xcschemes/`.
 It has to stay there and stay committed — Xcode's default is to write schemes
@@ -44,8 +52,52 @@ invalidates every build already signed with it.
 must not be able to regenerate signing material.
 
 The Xcode project itself uses **Automatic** signing, which a headless runner
-can't do. The `beta` lane overrides that to Manual for the archive only, via
-`xcargs`, so the checked-in project stays convenient to open in Xcode.
+can't do. The `beta` lane overrides that to Manual with
+`update_code_signing_settings`, scoped to the app target and the `Release`
+configuration, so the checked-in project stays convenient to open in Xcode.
+
+Passing those settings as `build_app` `xcargs` instead — which an earlier
+version of this lane did — is unreliable, in two separate ways. Unscoped, the
+override reaches every target xcodebuild touches, including SPM dependency
+targets like swift-crypto's `CCryptoBoringSSL` that don't accept a
+provisioning profile at all and fail the archive if forced to. Scoped
+correctly, xcodebuild's signing preflight could *still* report
+"No profiles ... were found" despite match having installed a matching profile
+seconds earlier (fastlane/fastlane#18352). Writing the settings into
+`project.pbxproj` before the archive is what fastlane's own codesigning guide
+recommends for CI, and is the fix that stuck — **don't revert to `xcargs` for
+signing.**
+
+## The C2PA framework min-OS patch
+
+`c2pa-swift` 0.0.12 vendors a `C2PAC.framework` that is internally
+inconsistent: its `Info.plist` declares `MinimumOSVersion 16.0`, but the
+compiled binary's `LC_BUILD_VERSION` says `minos 18.5`. App Store Connect
+validates the embedded frameworks, not just our own deployment target, and
+rejects the upload with **ITMS-90208** once it tries to reconcile the two.
+This is an upstream packaging defect — the framework is prebuilt and never
+recompiled here, so no project setting of ours can fix it.
+
+The `beta` lane works around it in `fix_c2pa_framework_min_os_version`, and
+the *ordering* is load-bearing:
+
+1. `xcodebuild -resolvePackageDependencies` runs explicitly, ahead of
+   `build_app`, so the artifact is on disk to patch.
+2. `PlistBuddy` rewrites `MinimumOSVersion` to `18.5` on the `ios-arm64`
+   slice — the only one that ends up in an app-store archive.
+3. `build_app` runs with `skip_package_dependencies_resolution: true`, so it
+   can't re-resolve and re-extract over the patch.
+
+**Patching the built output instead does not work.** An earlier version
+patched the exported `.ipa`; modifying any file inside an already-signed
+bundle invalidates its signature, and the upload failed with "Missing or
+invalid signature. The bundle ... is not signed using an Apple submission
+certificate." The patch has to land before Xcode embeds and signs the
+framework.
+
+The helper hard-fails if the artifact isn't at the expected path, which is the
+intended signal that a `c2pa-swift` bump needs this re-checked — including
+checking whether upstream has fixed it and the patch can simply be deleted.
 
 ## Build numbers
 
@@ -145,6 +197,10 @@ suspects, in rough order of likelihood:
   problem.
 - **SPM resolution.** Network flake, or a dependency that moved. `c2pa-swift` is
   pre-1.0 and ships a prebuilt XCFramework, so it is the likeliest to break.
+- **`ITMS-90208` at upload**, or `fix_c2pa_framework_min_os_version` hard-failing
+  on a missing artifact path. Both mean the C2PA framework patch above needs
+  re-checking against the current `c2pa-swift` version. Like the SDK rejection,
+  ITMS-90208 surfaces only after a full successful archive.
 - **Profile / entitlement mismatch.** Usually means the App ID is missing a
   capability the entitlements file asks for (Sign in with Apple), or the profile
   predates a capability change. Re-run the bootstrap to regenerate the profile.
