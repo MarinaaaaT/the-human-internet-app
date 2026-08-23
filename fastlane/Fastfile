@@ -121,15 +121,19 @@ platform :ios do
     )
   end
 
-  # Reads the App Store Connect API key out of the environment. The .p8 arrives
-  # as a secret holding the file's literal contents, BEGIN/END lines included,
-  # because GitHub secrets are strings and there is no file to mount.
+  # Reads the App Store Connect API key out of the environment. ASC_KEY_P8
+  # must hold the .p8 file's contents **base64-encoded**, not the raw PEM text
+  # — a GitHub secret is a single string, and a literal multi-line PEM pasted
+  # into one loses its real line breaks in transit often enough that OpenSSL
+  # fails deep inside spaceship with an opaque "invalid curve name" rather than
+  # a clear parse error. Base64 has no newlines to lose, so it survives.
+  # Produce the secret value with: base64 -i AuthKey_XXXXXXXXXX.p8 | tr -d '\n'
   def asc_api_key
     app_store_connect_api_key(
       key_id: ENV.fetch("ASC_KEY_ID"),
       issuer_id: ENV.fetch("ASC_ISSUER_ID"),
       key_content: ENV.fetch("ASC_KEY_P8"),
-      is_key_content_base64: false,
+      is_key_content_base64: true,
       in_house: false
     )
   end

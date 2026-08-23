@@ -69,7 +69,7 @@ commit.
 | --- | --- |
 | `ASC_KEY_ID` | Key ID of the App Store Connect API key |
 | `ASC_ISSUER_ID` | Issuer ID from the same page |
-| `ASC_KEY_P8` | Full contents of the `.p8`, BEGIN and END lines included |
+| `ASC_KEY_P8` | **Base64-encoded** contents of the `.p8` — `base64 -i AuthKey_XXXXXXXXXX.p8 \| tr -d '\n'`, not the raw PEM text. A raw multi-line PEM pasted into a GitHub secret can lose its line breaks in transit, which fails deep inside fastlane's spaceship dependency with an opaque `OpenSSL::PKey::ECError: invalid curve name` rather than a clear parse error |
 | `MATCH_PASSWORD` | Passphrase encrypting the certs repo. Not recoverable — keep it in a password manager |
 | `MATCH_GIT_URL` | HTTPS URL of the private certs repo |
 | `MATCH_GIT_BASIC_AUTHORIZATION` | base64 of `username:personal-access-token` |
