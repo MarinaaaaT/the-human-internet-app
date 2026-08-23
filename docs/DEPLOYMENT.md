@@ -122,9 +122,13 @@ Job logs are readable from the Actions tab (or `gh run view --log-failed`), and
 the workflow uploads gym/fastlane logs as an artifact on failure. The usual
 suspects, in rough order of likelihood:
 
-- **Xcode version mismatch.** The workflow pins Xcode 16.4. If the runner image
+- **Xcode version mismatch.** The workflow pins Xcode 26.3. If the runner image
   drops it, the `xcode-select` step fails immediately and loudly — that's the
-  intent. Bump the pin to a version the image actually has.
+  intent. Bump the pin to a version the image actually has. Don't bump it
+  below whatever SDK App Store Connect currently requires at upload time —
+  that rejection surfaces late, at `upload_to_testflight`, after a full
+  archive, and reads as an unrelated validation error rather than a version
+  problem.
 - **SPM resolution.** Network flake, or a dependency that moved. `c2pa-swift` is
   pre-1.0 and ships a prebuilt XCFramework, so it is the likeliest to break.
 - **Profile / entitlement mismatch.** Usually means the App ID is missing a
