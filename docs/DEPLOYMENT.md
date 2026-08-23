@@ -21,7 +21,7 @@ branch, without pushing.
 | Path | What it does |
 | --- | --- |
 | [`.github/workflows/testflight.yml`](../.github/workflows/testflight.yml) | Trigger, runner, Xcode pin, caching, secret plumbing |
-| [`fastlane/Fastfile`](../fastlane/Fastfile) | `beta` (build + upload) and `tests` lanes |
+| [`fastlane/Fastfile`](../fastlane/Fastfile) | `beta` (build + upload), `tests`, and `signing_bootstrap` lanes |
 | [`fastlane/Appfile`](../fastlane/Appfile) | Bundle id + team id |
 | `Gemfile` | Pins fastlane so a runner-image update can't silently change it |
 
@@ -103,9 +103,15 @@ Already done once; recorded here in case it has to be redone.
 7. **Signing bootstrap** — one run of match in create mode to mint the
    certificate and profile and push them, encrypted, to the certs repo. This is
    the step that normally requires Keychain Access on a Mac; match generates the
-   signing request itself using the API key. **Not yet written** — the `beta`
-   lane reads signing material but nothing in this repo creates it, so the
-   bootstrap lane is the next thing needed before a first build can go green.
+   signing request itself using the API key. Lives as the `signing_bootstrap`
+   lane in the Fastfile — `readonly: false`, so it creates signing material if
+   the certs repo has none yet, or just reads it if it does, meaning it's safe
+   to re-run later (e.g. after a capability change forces a new profile).
+
+   Run it once via the Actions tab → **TestFlight** → *Run workflow* → set
+   **lane** to `signing_bootstrap`, or locally with the six secrets exported:
+   `bundle exec fastlane signing_bootstrap`. **Never** wire this lane to the
+   `push` trigger — a routine build must stay on the readonly `beta` lane.
 8. **Internal Testing group** in TestFlight with both testers. Internal testers
    skip Beta App Review, so a green build is installable within minutes.
    Enabling automatic updates in the TestFlight app completes the loop.

@@ -29,8 +29,8 @@ platform :ios do
   lane :beta do
     api_key = asc_api_key
 
-    # readonly: the certificate and profile are minted once by the signing
-    # bootstrap (a separate one-off lane, not yet written — see DEPLOYMENT.md)
+    # readonly: the certificate and profile are minted once by the
+    # signing_bootstrap lane below (run once, by hand, never automatically)
     # and from then on only ever read. A regular build must never be able to
     # regenerate them — revoking a distribution certificate invalidates every
     # build already signed with it.
@@ -88,6 +88,27 @@ platform :ios do
       # 5-15 minutes Apple takes to process the binary.
       skip_waiting_for_build_processing: true,
       distribute_external: false
+    )
+  end
+
+  desc "One-off: mint the distribution cert + profile into the match repo"
+  lane :signing_bootstrap do
+    # readonly: false lets match CREATE a certificate and profile if the certs
+    # repo doesn't have one yet for this app_identifier/type — but if one is
+    # already there, this is a no-op read, identical to the beta lane. That
+    # makes the lane safe to re-run (e.g. after adding a capability like Sign
+    # in with Apple forces a new profile) without ever minting a redundant
+    # distribution certificate, which Apple caps at a small number per team.
+    #
+    # This must only ever be triggered by hand (workflow_dispatch with
+    # lane=signing_bootstrap, or locally) — never wire it to `push`. A routine
+    # build uses the readonly beta lane above on purpose; see that lane's
+    # comment for why.
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      api_key: asc_api_key,
+      readonly: false
     )
   end
 

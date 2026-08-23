@@ -16,6 +16,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      lane:
+        description: >-
+          fastlane lane to run. Leave as beta for a normal release build.
+          signing_bootstrap is the one-off that mints signing material into
+          the match repo — only pick it when DEPLOYMENT.md says to.
+        type: choice
+        options: [beta, signing_bootstrap]
+        default: beta
 
 # Two pushes in quick succession would otherwise race for the same build number
 # and one upload would be rejected. Queue instead of cancelling: a cancelled run
@@ -55,10 +64,13 @@ jobs:
       - name: Select Xcode 16.4
         # Pinned deliberately. Runner images roll their default Xcode forward
         # without notice, and a version bump is the single most common cause of
-        # a build that was green yesterday going red today.
+        # a build that was green yesterday going red today. Not needed for the
+        # signing-only bootstrap lane, which never invokes xcodebuild.
+        if: github.event.inputs.lane != 'signing_bootstrap'
         run: sudo xcode-select -switch /Applications/Xcode_16.4.app
 
       - name: Report toolchain versions
+        if: github.event.inputs.lane != 'signing_bootstrap'
         run: |
           xcodebuild -version
           swift --version
@@ -70,6 +82,7 @@ jobs:
           bundler-cache: true
 
       - name: Cache Swift packages
+        if: github.event.inputs.lane != 'signing_bootstrap'
         uses: actions/cache@v4
         with:
           path: SourcePackages
@@ -79,8 +92,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Build and upload to TestFlight
-        run: bundle exec fastlane beta
+      - name: Run fastlane lane
+        # push events carry no `inputs`, so this always resolves to `beta` for
+        # the normal push-to-main trigger; workflow_dispatch is the only way
+        # to pick signing_bootstrap.
+        run: bundle exec fastlane ${{ github.event.inputs.lane || 'beta' }}
 
       - name: Upload build logs on failure
         if: failure()
