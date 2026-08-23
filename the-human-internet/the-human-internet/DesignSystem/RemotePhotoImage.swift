@@ -39,7 +39,6 @@ struct RemotePhotoImage: View {
     /// size, so decoding to this cap loses no visible detail while using a
     /// fraction of the memory/bandwidth of a ~4000px full-resolution capture.
     private static let thumbnailMaxPixelSize: CGFloat = 600
-    private static let thumbnailCache = NSCache<NSString, UIImage>()
 
     var body: some View {
         Group {
@@ -66,7 +65,7 @@ struct RemotePhotoImage: View {
             image = nil
             didFail = false
 
-            if isThumbnail, let cached = Self.thumbnailCache.object(forKey: photo.storagePath as NSString) {
+            if isThumbnail, let cached = PhotoThumbnailCache.image(for: photo.storagePath) {
                 image = cached
                 loadedPath = photo.storagePath
                 return
@@ -95,7 +94,7 @@ struct RemotePhotoImage: View {
         image = decoded
         loadedPath = photo.storagePath
         if isThumbnail, let decoded {
-            Self.thumbnailCache.setObject(decoded, forKey: photo.storagePath as NSString)
+            PhotoThumbnailCache.store(decoded, for: photo.storagePath)
         }
     }
 
@@ -129,5 +128,37 @@ struct RemotePhotoImage: View {
             content()
         }
         .aspectRatio(contentMode == .fit ? 3.0 / 4.0 : nil, contentMode: contentMode)
+    }
+}
+
+/// Process-wide store of decoded grid thumbnails, keyed by storage path.
+///
+/// Split out of `RemotePhotoImage` rather than left as a static on the view
+/// so sign-out has something to call that isn't a SwiftUI view type, and so
+/// the eviction contract has one documented home.
+enum PhotoThumbnailCache {
+    private static let cache = NSCache<NSString, UIImage>()
+
+    static func image(for storagePath: String) -> UIImage? {
+        cache.object(forKey: storagePath as NSString)
+    }
+
+    static func store(_ image: UIImage, for storagePath: String) {
+        cache.setObject(image, forKey: storagePath as NSString)
+    }
+
+    /// Dropped on sign-out for the same reason `PhotoUploadQueue.pruneOnSignOut`
+    /// deletes pending files: the next person on a shared device shouldn't be
+    /// able to surface the previous user's photos, and decoded thumbnails held
+    /// in a process-wide cache are the same exposure as bytes left on disk —
+    /// storage paths are namespaced per user, so nothing here is ever reusable
+    /// across an account change anyway.
+    ///
+    /// Note this is the only *deliberate* eviction. `NSCache` also drops
+    /// entries on its own under memory pressure, which is why the grid's
+    /// guarantee is "downloaded once per photo per launch, absent memory
+    /// pressure" rather than a hard once.
+    static func removeAll() {
+        cache.removeAllObjects()
     }
 }
