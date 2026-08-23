@@ -5,6 +5,8 @@
 # an Apple ID, so no interactive 2FA is ever needed and the whole pipeline can
 # run on a GitHub Actions runner with no Mac in the loop.
 
+require "tmpdir"
+
 default_platform(:ios)
 
 # The Xcode project sits one directory down from the repo root, and fastlane
@@ -94,6 +96,8 @@ platform :ios do
       clean: true
     )
 
+    fix_c2pa_framework_min_os_version
+
     upload_to_testflight(
       api_key: api_key,
       # Internal testers skip Beta App Review, so there is nothing to submit and
@@ -149,5 +153,35 @@ platform :ios do
       is_key_content_base64: true,
       in_house: false
     )
+  end
+
+  # c2pa-swift 0.0.12's vendored C2PAC.framework is internally inconsistent:
+  # its own Info.plist declares MinimumOSVersion 16.0, but the actual compiled
+  # binary's LC_BUILD_VERSION load command says minos 18.5 — it cannot
+  # actually run below what it claims to support. App Store Connect validates
+  # that, not just our own deployment target, and rejects the upload with
+  # ITMS-90208 ("does not support the minimum OS Version specified in the
+  # Info.plist") once it tries to reconcile the two. This is an upstream
+  # packaging defect (checked: 0.0.12 is the latest release, no issue filed
+  # yet), not something our own project settings can fix — the framework is
+  # prebuilt and never recompiled by us. Patching the declared minimum up to
+  # match the binary's real requirement (which equals our own deployment
+  # target, so this costs no compatibility we didn't already require) is the
+  # only fix available on our side, so it's applied directly to the exported
+  # .ipa, post-archive, right before upload.
+  def fix_c2pa_framework_min_os_version
+    ipa_path = Actions.lane_context[SharedValues::IPA_OUTPUT_PATH]
+    relative_plist_path = "Payload/#{SCHEME}.app/Frameworks/C2PAC.framework/Info.plist"
+
+    Dir.mktmpdir do |tmp_dir|
+      sh("unzip -q '#{ipa_path}' '#{relative_plist_path}' -d '#{tmp_dir}'")
+      extracted_plist = File.join(tmp_dir, relative_plist_path)
+      UI.user_error!("C2PAC.framework/Info.plist not found in the IPA at the expected path — the fix in fix_c2pa_framework_min_os_version needs re-checking against the current c2pa-swift version") unless File.exist?(extracted_plist)
+
+      sh("/usr/libexec/PlistBuddy -c 'Set :MinimumOSVersion 18.5' '#{extracted_plist}'")
+      sh("cd '#{tmp_dir}' && zip '#{ipa_path}' '#{relative_plist_path}'")
+    end
+
+    UI.success("Patched C2PAC.framework's MinimumOSVersion to 18.5 (upstream c2pa-swift packaging defect)")
   end
 end
