@@ -62,12 +62,19 @@ platform :ios do
       # The project is configured for Automatic signing, which a headless runner
       # cannot do. Forcing Manual signing plus the match-generated profile is
       # what makes the archive reproducible in CI.
+      #
+      # The signing overrides are scoped to the app target (`SCHEME:SETTING=`)
+      # rather than applied bare. Unscoped, xcodebuild applies them to every
+      # target in the build graph, including SPM dependency targets — several
+      # of swift-crypto's internal targets (e.g. CCryptoBoringSSL) are plain
+      # libraries that explicitly don't support having a provisioning profile
+      # assigned at all, and fail the archive if one is forced onto them.
       xcargs: [
         "CURRENT_PROJECT_VERSION=#{build_number}",
-        "CODE_SIGN_STYLE=Manual",
-        "DEVELOPMENT_TEAM=9HP4Y79QFR",
-        "CODE_SIGN_IDENTITY='Apple Distribution'",
-        "PROVISIONING_PROFILE_SPECIFIER='#{PROFILE_NAME}'"
+        "#{SCHEME}:CODE_SIGN_STYLE=Manual",
+        "#{SCHEME}:DEVELOPMENT_TEAM=9HP4Y79QFR",
+        "#{SCHEME}:CODE_SIGN_IDENTITY='Apple Distribution'",
+        "#{SCHEME}:PROVISIONING_PROFILE_SPECIFIER='#{PROFILE_NAME}'"
       ].join(" "),
       export_options: {
         provisioningProfiles: {
