@@ -5,8 +5,6 @@
 # an Apple ID, so no interactive 2FA is ever needed and the whole pipeline can
 # run on a GitHub Actions runner with no Mac in the loop.
 
-require "tmpdir"
-
 default_platform(:ios)
 
 # The Xcode project sits one directory down from the repo root, and fastlane
@@ -73,6 +71,19 @@ platform :ios do
 
     UI.message("Building #{APP_IDENTIFIER} as build #{build_number}")
 
+    # Resolved explicitly, ahead of build_app, so fix_c2pa_framework_min_os_version
+    # can patch the package artifact on disk *before* Xcode embeds and signs it
+    # into the archive. Patching after the fact (an earlier version of this
+    # lane did that, against the exported .ipa) breaks the codesign entirely —
+    # modifying any file inside an already-signed bundle invalidates its
+    # signature, which is what turned the previous fix into a new failure:
+    # "Missing or invalid signature. The bundle ... is not signed using an
+    # Apple submission certificate."
+    sh("xcodebuild -resolvePackageDependencies " \
+       "-scheme #{SCHEME} -project #{XCODEPROJ} -configuration Release " \
+       "-clonedSourcePackagesDirPath SourcePackages")
+    fix_c2pa_framework_min_os_version
+
     build_app(
       project: XCODEPROJ,
       scheme: SCHEME,
@@ -93,10 +104,12 @@ platform :ios do
       # Keep resolved packages at a fixed repo-relative path so CI can cache
       # them; the default lives inside DerivedData under a hashed folder name.
       cloned_source_packages_path: "SourcePackages",
+      # We already resolved above so the min-OS patch could land before the
+      # archive step — letting build_app resolve again risks it treating the
+      # already-patched artifact as stale and re-extracting over the patch.
+      skip_package_dependencies_resolution: true,
       clean: true
     )
-
-    fix_c2pa_framework_min_os_version
 
     upload_to_testflight(
       api_key: api_key,
@@ -164,24 +177,17 @@ platform :ios do
   # Info.plist") once it tries to reconcile the two. This is an upstream
   # packaging defect (checked: 0.0.12 is the latest release, no issue filed
   # yet), not something our own project settings can fix — the framework is
-  # prebuilt and never recompiled by us. Patching the declared minimum up to
-  # match the binary's real requirement (which equals our own deployment
-  # target, so this costs no compatibility we didn't already require) is the
-  # only fix available on our side, so it's applied directly to the exported
-  # .ipa, post-archive, right before upload.
+  # prebuilt and never recompiled by us.
+  #
+  # Must run on the resolved SPM artifact, before build_app archives — see the
+  # comment at the call site for why patching the built/signed output instead
+  # breaks codesign. Only the device (ios-arm64) slice is patched: it's the
+  # only one that ends up embedded in an app-store archive.
   def fix_c2pa_framework_min_os_version
-    ipa_path = Actions.lane_context[SharedValues::IPA_OUTPUT_PATH]
-    relative_plist_path = "Payload/#{SCHEME}.app/Frameworks/C2PAC.framework/Info.plist"
+    plist_path = "SourcePackages/artifacts/c2pa-swift/C2PAC/C2PAC.xcframework/ios-arm64/C2PAC.framework/Info.plist"
+    UI.user_error!("C2PAC.framework/Info.plist not found at the expected resolved-artifact path — the fix in fix_c2pa_framework_min_os_version needs re-checking against the current c2pa-swift version") unless File.exist?(plist_path)
 
-    Dir.mktmpdir do |tmp_dir|
-      sh("unzip -q '#{ipa_path}' '#{relative_plist_path}' -d '#{tmp_dir}'")
-      extracted_plist = File.join(tmp_dir, relative_plist_path)
-      UI.user_error!("C2PAC.framework/Info.plist not found in the IPA at the expected path — the fix in fix_c2pa_framework_min_os_version needs re-checking against the current c2pa-swift version") unless File.exist?(extracted_plist)
-
-      sh("/usr/libexec/PlistBuddy -c 'Set :MinimumOSVersion 18.5' '#{extracted_plist}'")
-      sh("cd '#{tmp_dir}' && zip '#{ipa_path}' '#{relative_plist_path}'")
-    end
-
+    sh("/usr/libexec/PlistBuddy -c 'Set :MinimumOSVersion 18.5' '#{plist_path}'")
     UI.success("Patched C2PAC.framework's MinimumOSVersion to 18.5 (upstream c2pa-swift packaging defect)")
   end
 end
