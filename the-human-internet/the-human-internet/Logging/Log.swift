@@ -13,7 +13,7 @@ import os
 /// like "my photo never uploaded" can actually be diagnosed after the fact
 /// via Console.app or `sysdiagnose` instead of requiring a live repro.
 enum Log {
-    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.marina.the-human-internet"
+    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.thehumaninternet.app"
 
     static let auth = Logger(subsystem: subsystem, category: "auth")
     static let onboarding = Logger(subsystem: subsystem, category: "onboarding")
