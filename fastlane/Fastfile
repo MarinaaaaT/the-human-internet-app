@@ -7,8 +7,18 @@
 
 default_platform(:ios)
 
+# fastlane actions (build_app, match, etc.) resolve relative paths from the
+# repo root, but raw `sh` calls and plain Ruby (File, Dir) in the Fastfile run
+# from ./fastlane instead — a documented fastlane quirk
+# (docs.fastlane.tools/advanced/fastlane/#directory-behavior). REPO_ROOT lets
+# any raw sh/File code sidestep that with an absolute path instead of a
+# fragile `cd ..`.
+REPO_ROOT = File.expand_path("..", __dir__).freeze
+
 # The Xcode project sits one directory down from the repo root, and fastlane
-# runs from the root, so every path here is repo-relative.
+# actions resolve paths relative to the root, so every path here is
+# repo-relative — safe to hand to an action directly, but needs REPO_ROOT
+# prepended first for any raw sh/File use (see above).
 XCODEPROJ = "the-human-internet/the-human-internet.xcodeproj".freeze
 SCHEME = "the-human-internet".freeze
 APP_IDENTIFIER = "com.thehumaninternet.app".freeze
@@ -79,9 +89,12 @@ platform :ios do
     # signature, which is what turned the previous fix into a new failure:
     # "Missing or invalid signature. The bundle ... is not signed using an
     # Apple submission certificate."
+    # Absolute paths (via REPO_ROOT): sh runs from fastlane/, not the repo
+    # root, so a bare XCODEPROJ/"SourcePackages" here would look for
+    # fastlane/the-human-internet/... instead of the real location.
     sh("xcodebuild -resolvePackageDependencies " \
-       "-scheme #{SCHEME} -project #{XCODEPROJ} -configuration Release " \
-       "-clonedSourcePackagesDirPath SourcePackages")
+       "-scheme #{SCHEME} -project '#{File.join(REPO_ROOT, XCODEPROJ)}' -configuration Release " \
+       "-clonedSourcePackagesDirPath '#{File.join(REPO_ROOT, 'SourcePackages')}'")
     fix_c2pa_framework_min_os_version
 
     build_app(
@@ -183,8 +196,13 @@ platform :ios do
   # comment at the call site for why patching the built/signed output instead
   # breaks codesign. Only the device (ios-arm64) slice is patched: it's the
   # only one that ends up embedded in an app-store archive.
+  #
+  # Absolute path via REPO_ROOT: this is plain Ruby/sh in the Fastfile, which
+  # runs from fastlane/, not the repo root — a relative "SourcePackages/..."
+  # here would silently check fastlane/SourcePackages/... instead and always
+  # report missing.
   def fix_c2pa_framework_min_os_version
-    plist_path = "SourcePackages/artifacts/c2pa-swift/C2PAC/C2PAC.xcframework/ios-arm64/C2PAC.framework/Info.plist"
+    plist_path = File.join(REPO_ROOT, "SourcePackages/artifacts/c2pa-swift/C2PAC/C2PAC.xcframework/ios-arm64/C2PAC.framework/Info.plist")
     UI.user_error!("C2PAC.framework/Info.plist not found at the expected resolved-artifact path — the fix in fix_c2pa_framework_min_os_version needs re-checking against the current c2pa-swift version") unless File.exist?(plist_path)
 
     sh("/usr/libexec/PlistBuddy -c 'Set :MinimumOSVersion 18.5' '#{plist_path}'")
