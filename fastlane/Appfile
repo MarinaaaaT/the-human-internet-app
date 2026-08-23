@@ -1,0 +1,11 @@
+# The bundle identifier registered in the Apple Developer portal and used for
+# the App Store Connect app record. Must match PRODUCT_BUNDLE_IDENTIFIER for
+# the `the-human-internet` target in project.pbxproj.
+app_identifier("com.thehumaninternet.app")
+
+team_id("9HP4Y79QFR")
+
+# No apple_id / itc_team_id on purpose: every App Store Connect call in the
+# Fastfile authenticates with the App Store Connect API key, which needs no
+# Apple ID, no password, and no 2FA session. That is what lets this run
+# unattended on CI.

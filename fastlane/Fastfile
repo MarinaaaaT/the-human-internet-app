@@ -1,0 +1,115 @@
+# Deployment lanes for the iOS app. See docs/DEPLOYMENT.md for the full
+# picture, including the one-off signing bootstrap and the required secrets.
+#
+# Everything here authenticates with an App Store Connect API key rather than
+# an Apple ID, so no interactive 2FA is ever needed and the whole pipeline can
+# run on a GitHub Actions runner with no Mac in the loop.
+
+default_platform(:ios)
+
+# The Xcode project sits one directory down from the repo root, and fastlane
+# runs from the root, so every path here is repo-relative.
+XCODEPROJ = "the-human-internet/the-human-internet.xcodeproj".freeze
+SCHEME = "the-human-internet".freeze
+APP_IDENTIFIER = "com.thehumaninternet.app".freeze
+
+# match names the profiles it generates after this pattern; gym needs the exact
+# string to map the bundle id to a profile when exporting with manual signing.
+PROFILE_NAME = "match AppStore #{APP_IDENTIFIER}".freeze
+
+platform :ios do
+  before_all do
+    # Creates a throwaway keychain and unlocks it. Without this, match has
+    # nowhere to install the distribution certificate on a fresh runner, and
+    # codesign fails late in the archive with an opaque "no identity found".
+    setup_ci if ENV["CI"]
+  end
+
+  desc "Build the Release configuration and upload it to TestFlight"
+  lane :beta do
+    api_key = asc_api_key
+
+    # readonly: the certificate and profile are minted once by the signing
+    # bootstrap (a separate one-off lane, not yet written — see DEPLOYMENT.md)
+    # and from then on only ever read. A regular build must never be able to
+    # regenerate them — revoking a distribution certificate invalidates every
+    # build already signed with it.
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      api_key: api_key,
+      readonly: true
+    )
+
+    build_number = ENV.fetch("BUILD_NUMBER") do
+      UI.user_error!("BUILD_NUMBER is not set. CI passes github.run_number; " \
+                     "set it by hand for a local run, e.g. BUILD_NUMBER=9001.")
+    end
+
+    UI.message("Building #{APP_IDENTIFIER} as build #{build_number}")
+
+    build_app(
+      project: XCODEPROJ,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      # CURRENT_PROJECT_VERSION is hardcoded to 1 in project.pbxproj so that
+      # local Xcode builds still produce a valid CFBundleVersion. Overriding it
+      # here is what keeps App Store Connect from rejecting the second upload
+      # for a duplicate build number, without mutating the project file on every
+      # CI run.
+      #
+      # The project is configured for Automatic signing, which a headless runner
+      # cannot do. Forcing Manual signing plus the match-generated profile is
+      # what makes the archive reproducible in CI.
+      xcargs: [
+        "CURRENT_PROJECT_VERSION=#{build_number}",
+        "CODE_SIGN_STYLE=Manual",
+        "DEVELOPMENT_TEAM=9HP4Y79QFR",
+        "CODE_SIGN_IDENTITY='Apple Distribution'",
+        "PROVISIONING_PROFILE_SPECIFIER='#{PROFILE_NAME}'"
+      ].join(" "),
+      export_options: {
+        provisioningProfiles: {
+          APP_IDENTIFIER => PROFILE_NAME
+        }
+      },
+      output_directory: "build",
+      # Keep resolved packages at a fixed repo-relative path so CI can cache
+      # them; the default lives inside DerivedData under a hashed folder name.
+      cloned_source_packages_path: "SourcePackages",
+      clean: true
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      # Internal testers skip Beta App Review, so there is nothing to submit and
+      # nothing to wait for. Waiting would just hold the runner open for the
+      # 5-15 minutes Apple takes to process the binary.
+      skip_waiting_for_build_processing: true,
+      distribute_external: false
+    )
+  end
+
+  desc "Compile and run the test suite. No signing, no secrets."
+  lane :tests do
+    run_tests(
+      project: XCODEPROJ,
+      scheme: SCHEME,
+      device: "iPhone 16 Pro"
+    )
+  end
+
+  # Reads the App Store Connect API key out of the environment. The .p8 arrives
+  # as a secret holding the file's literal contents, BEGIN/END lines included,
+  # because GitHub secrets are strings and there is no file to mount.
+  def asc_api_key
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8"),
+      is_key_content_base64: false,
+      in_house: false
+    )
+  end
+end

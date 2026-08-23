@@ -1,0 +1,95 @@
+name: TestFlight
+
+# SECURITY, load-bearing: this workflow has access to the signing secrets, so it
+# must never run on code from a fork. That is enforced three ways:
+#   1. There is no `pull_request` trigger, and above all no `pull_request_target`
+#      — the latter runs the BASE repo's workflow with secrets available while
+#      checking out an attacker's branch. Adding one here would hand the
+#      distribution certificate to anyone who opens a PR.
+#   2. GitHub withholds secrets from fork-originated runs by default. Nothing
+#      below opts out of that.
+#   3. The `if:` guard on the job pins it to this repository, so the workflow
+#      is inert in any fork that copies it.
+# The repo is public, so all three matter.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Two pushes in quick succession would otherwise race for the same build number
+# and one upload would be rejected. Queue instead of cancelling: a cancelled run
+# has usually already consumed its build number.
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    if: github.repository == 'MarinaaaaT/the-human-internet-app'
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    env:
+      # App Store Connect API key — uploads the build, and lets match talk to
+      # the developer portal without an Apple ID or 2FA.
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      # match — decrypts the certs repo and authenticates the read of it.
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+      # Monotonic across the repo's history and never reused, which is exactly
+      # what App Store Connect requires of CFBundleVersion. Re-running a failed
+      # run reuses its number, so a run that already uploaded cannot be re-run
+      # blindly — push a new commit instead.
+      BUILD_NUMBER: ${{ github.run_number }}
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_HIDE_CHANGELOG: "1"
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        # Pinned deliberately. Runner images roll their default Xcode forward
+        # without notice, and a version bump is the single most common cause of
+        # a build that was green yesterday going red today.
+        run: sudo xcode-select -switch /Applications/Xcode_16.4.app
+
+      - name: Report toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Set up Ruby and install fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: SourcePackages
+          # Package.resolved pins exact versions, so it is the correct key: a
+          # dependency bump changes the file and correctly misses the cache.
+          key: ${{ runner.os }}-spm-${{ hashFiles('the-human-internet/the-human-internet.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build and upload to TestFlight
+        run: bundle exec fastlane beta
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            ~/Library/Logs/gym
+            ~/Library/Logs/fastlane
+            fastlane/report.xml
+          if-no-files-found: ignore
+          retention-days: 14
