@@ -61,9 +61,9 @@ instead. `MARKETING_VERSION` (the user-visible `1.0`) is still edited by hand.
 
 ## Secrets
 
-Six repository secrets, at Settings → Secrets and variables → Actions. None of
-them are in this repo, and none should ever be pasted into a chat, a log, or a
-commit.
+Six required repository secrets, plus one optional, at Settings → Secrets and
+variables → Actions. None of them are in this repo, and none should ever be
+pasted into a chat, a log, or a commit.
 
 | Secret | Value |
 | --- | --- |
@@ -73,10 +73,24 @@ commit.
 | `MATCH_PASSWORD` | Passphrase encrypting the certs repo. Not recoverable — keep it in a password manager |
 | `MATCH_GIT_URL` | HTTPS URL of the private certs repo |
 | `MATCH_GIT_BASIC_AUTHORIZATION` | base64 of `username:personal-access-token` |
+| `DISCORD_WEBHOOK_URL` (optional) | A Discord channel webhook URL (channel → Edit Channel → Integrations → Webhooks). If unset, the notify step just skips itself — everything else still runs |
 
 The App Store Connect API key is what avoids an Apple ID, a password, and 2FA
 in CI. It needs the **App Manager** role: upload alone isn't enough, because
 match also has to talk to the developer portal.
+
+## Discord notifications
+
+The last step of the job posts a build result (✅/❌/⏹️, lane, commit, actor,
+link to the run) to a Discord channel via a plain `curl` to a webhook URL —
+deliberately not a marketplace Discord action, since this repo is public and
+the job already holds signing secrets; a chat notification isn't worth adding
+a new third-party action to that trust boundary. Fires on every run
+(`if: always()`), success or failure, for both `push` and `workflow_dispatch`.
+
+To wire it up: in Discord, go to the target channel → **Edit Channel** →
+**Integrations** → **Webhooks** → **New Webhook**, copy its URL, and set it as
+the `DISCORD_WEBHOOK_URL` repo secret. Nothing else to configure.
 
 ### Why this workflow can't run on a pull request
 

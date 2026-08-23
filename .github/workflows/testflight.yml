@@ -114,3 +114,48 @@ jobs:
             fastlane/report.xml
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Notify Discord
+        # Plain curl to a Discord webhook rather than a marketplace Discord
+        # action — this repo is public and the job already holds signing
+        # secrets, so it doesn't get a new third-party action added to that
+        # trust boundary just for a chat notification. Skips silently (not a
+        # failure) if DISCORD_WEBHOOK_URL isn't set, so this is optional.
+        if: always()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          STATUS: ${{ job.status }}
+          LANE: ${{ github.event.inputs.lane || 'beta' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL not set, skipping Discord notification"
+            exit 0
+          fi
+
+          case "$STATUS" in
+            success) emoji="✅" ; color=3066993 ;;
+            failure) emoji="❌" ; color=15158332 ;;
+            cancelled) emoji="⏹️" ; color=9807270 ;;
+            *) emoji="❓" ; color=0 ;;
+          esac
+
+          short_sha="${COMMIT_SHA:0:7}"
+          first_line="${COMMIT_MSG%%$'\n'*}"
+          description="Commit \`$short_sha\` on \`$REF_NAME\` by $ACTOR"
+          if [ -n "$first_line" ]; then
+            description="$description"$'\n'"$first_line"
+          fi
+
+          payload=$(jq -n \
+            --arg title "$emoji the-human-internet-app — $LANE $STATUS" \
+            --arg url "$RUN_URL" \
+            --arg description "$description" \
+            --argjson color "$color" \
+            '{embeds: [{title: $title, url: $url, description: $description, color: $color}]}')
+
+          curl -sf -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_URL"
