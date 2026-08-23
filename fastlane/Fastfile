@@ -41,6 +41,29 @@ platform :ios do
       readonly: true
     )
 
+    # The project is configured for Automatic signing, which a headless runner
+    # cannot do. Passing the manual-signing settings as build_app xcargs (an
+    # earlier version of this lane did that) is unreliable on Xcode 16's
+    # modern build system: xcodebuild's own signing preflight can fail to
+    # pick them up and report "No profiles ... were found" even though match
+    # installed a matching profile seconds earlier — a long-standing
+    # fastlane/Xcode interaction (fastlane/fastlane#18352). Writing the
+    # settings directly into the project via update_code_signing_settings is
+    # the fix fastlane's own codesigning guide recommends for CI, and it's
+    # scoped to just the app target and the Release configuration so it can't
+    # touch SPM dependency targets — several of swift-crypto's internal
+    # targets (e.g. CCryptoBoringSSL) are plain libraries that explicitly
+    # don't support having a provisioning profile assigned at all.
+    update_code_signing_settings(
+      path: XCODEPROJ,
+      use_automatic_signing: false,
+      targets: [SCHEME],
+      build_configurations: ["Release"],
+      team_id: "9HP4Y79QFR",
+      code_sign_identity: "Apple Distribution",
+      profile_name: PROFILE_NAME
+    )
+
     build_number = ENV.fetch("BUILD_NUMBER") do
       UI.user_error!("BUILD_NUMBER is not set. CI passes github.run_number; " \
                      "set it by hand for a local run, e.g. BUILD_NUMBER=9001.")
@@ -58,24 +81,7 @@ platform :ios do
       # here is what keeps App Store Connect from rejecting the second upload
       # for a duplicate build number, without mutating the project file on every
       # CI run.
-      #
-      # The project is configured for Automatic signing, which a headless runner
-      # cannot do. Forcing Manual signing plus the match-generated profile is
-      # what makes the archive reproducible in CI.
-      #
-      # The signing overrides are scoped to the app target (`SCHEME:SETTING=`)
-      # rather than applied bare. Unscoped, xcodebuild applies them to every
-      # target in the build graph, including SPM dependency targets — several
-      # of swift-crypto's internal targets (e.g. CCryptoBoringSSL) are plain
-      # libraries that explicitly don't support having a provisioning profile
-      # assigned at all, and fail the archive if one is forced onto them.
-      xcargs: [
-        "CURRENT_PROJECT_VERSION=#{build_number}",
-        "#{SCHEME}:CODE_SIGN_STYLE=Manual",
-        "#{SCHEME}:DEVELOPMENT_TEAM=9HP4Y79QFR",
-        "#{SCHEME}:CODE_SIGN_IDENTITY='Apple Distribution'",
-        "#{SCHEME}:PROVISIONING_PROFILE_SPECIFIER='#{PROFILE_NAME}'"
-      ].join(" "),
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number}",
       export_options: {
         provisioningProfiles: {
           APP_IDENTIFIER => PROFILE_NAME
