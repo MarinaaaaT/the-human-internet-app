@@ -100,7 +100,12 @@ final class AppState {
     /// *not* call `PhotoUploadQueue.pruneOnSignOut`: this is still the same
     /// person on the same device, just needing to re-authenticate, and the
     /// pending-upload manifest already knows how to resume once they do.
+    ///
+    /// Decoded grid thumbnails *are* dropped, though — those are the previous
+    /// user's photo contents sitting in memory, and leaving them for whoever
+    /// signs in next would undo what `pruneOnSignOut` does for disk.
     func handleSessionInvalidated() {
+        PhotoThumbnailCache.removeAll()
         isOnboarded = false
         user = HumanUser()
         photos = []
