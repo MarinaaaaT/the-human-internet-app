@@ -85,6 +85,14 @@ struct IdentityVerificationView: View {
                     // Submitted — now genuinely pending until the
                     // stripe-identity-webhook Edge Function resolves it. The
                     // caller is responsible for persisting this.
+                    //
+                    // `unverified -> in_progress` is the *only* change to this
+                    // column a client is allowed to make: the
+                    // prevent_self_verification_escalation trigger reverts
+                    // every other transition, silently and without an error, so
+                    // that nobody can PATCH their own row to `verified`. Any
+                    // new transition has to go through a service_role path
+                    // (i.e. the webhook), not through this upsert.
                     appState.user.verificationStatus = .inProgress
                     onFinish()
                 }
