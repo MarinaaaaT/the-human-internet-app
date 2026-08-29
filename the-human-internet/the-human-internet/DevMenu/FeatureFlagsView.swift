@@ -12,10 +12,14 @@ struct FeatureFlagsView: View {
     var body: some View {
         List {
             Section {
-                flagPicker("Stripe Identity Verification", key: FeatureFlagKey.stripeIdentityVerification)
+                flagPicker("Show Stripe Identity Verification", key: FeatureFlagKey.stripeIdentityVerification)
+                flagPicker(
+                    "Use Test Environment for Stripe Identity Verification",
+                    key: FeatureFlagKey.stripeIdentityTestMode
+                )
                 flagPicker("AWS Server Side Signing", key: FeatureFlagKey.awsServerSideSigning)
             } footer: {
-                Text("All: on for every user. Admin: on only for admin accounts — use it to try a change against real data before everyone gets it. Off: on for nobody.")
+                Text("All: on for every user. Admin: on only for admin accounts — use it to try a change against real data before everyone gets it. Off: on for nobody.\n\nThe test environment flag is admin-only: All is refused, since a sandbox verification proves nothing about a real person.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -39,7 +43,6 @@ struct FeatureFlagsView: View {
     /// the same thing as whether it's on for whoever is looking at it.
     private func flagPicker(_ title: String, key: String) -> some View {
         Picker(
-            title,
             selection: Binding(
                 get: { appState.audience(for: key) },
                 set: { setAudience(key, to: $0) }
@@ -48,6 +51,11 @@ struct FeatureFlagsView: View {
             ForEach(FeatureFlagAudience.allCases) { audience in
                 Text(audience.label).tag(audience)
             }
+        } label: {
+            // A `Text` label rather than the string initializer so the longer
+            // flag names wrap instead of truncating to an ambiguous prefix.
+            Text(title)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .pickerStyle(.menu)
         .tint(Theme.accentBlue)
@@ -62,6 +70,14 @@ struct FeatureFlagsView: View {
     /// that was never in the dictionary returns to being absent rather than
     /// getting pinned to whatever fallback the picker happened to display.
     private func setAudience(_ key: String, to audience: FeatureFlagAudience) {
+        // Refused outright rather than written and then reverted: nothing
+        // should ever observe this combination, briefly or otherwise. The
+        // picker re-reads `audience(for:)` and so snaps back on its own.
+        if let reason = FeatureFlagPolicy.rejectionReason(setting: key, to: audience) {
+            errorMessage = reason
+            return
+        }
+
         let previous = appState.featureFlags[key]
         appState.featureFlags[key] = audience
         Task {

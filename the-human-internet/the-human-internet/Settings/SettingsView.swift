@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var showVerificationInfo = false
     @State private var showIdentityVerification = false
     @State private var showEditUsername = false
+    @State private var showFeedback = false
     @State private var showSignOutConfirmation = false
     @State private var signOutErrorMessage: String?
     @State private var saveErrorMessage: String?
@@ -36,10 +37,21 @@ struct SettingsView: View {
                     Divider().overlay(Color.white.opacity(0.08))
 
                     // Verification is optional and skippable during onboarding,
-                    // so this is the way back to it. Only offered to someone who
-                    // hasn't started — an in-progress user is waiting on the
-                    // webhook, and restarting would just orphan their session.
-                    if appState.user.verificationStatus == .unverified {
+                    // so this is the way back to it — gated twice, for two
+                    // unrelated reasons:
+                    //
+                    // - The flag is a kill switch, and it has to close every
+                    //   door at once. With "Show Stripe Identity Verification"
+                    //   off, onboarding doesn't offer the step, so Settings
+                    //   must not quietly remain a way in. Only the *action*
+                    //   goes: the Verification Status row above still reports
+                    //   whatever status the user already has, which stays true
+                    //   and useful regardless of whether they can act on it.
+                    // - Only offered to someone who hasn't started — an
+                    //   in-progress user is waiting on the webhook, and
+                    //   restarting would just orphan their session.
+                    if appState.isStripeIdentityVerificationEnabled,
+                       appState.user.verificationStatus == .unverified {
                         settingsRow(
                             title: "Identity Verification",
                             value: "Verify Identity",
@@ -50,6 +62,29 @@ struct SettingsView: View {
                         }
                         Divider().overlay(Color.white.opacity(0.08))
                     }
+
+                    // Leaves the app on purpose: a Discord invite needs the
+                    // user's own logged-in Discord session, so it belongs in
+                    // the Discord app (or Safari), not a WKWebView.
+                    settingsRow(
+                        title: "Contact Us",
+                        value: "Join our Discord",
+                        valueColor: Theme.accentBlue,
+                        icon: "arrow.up.right"
+                    ) {
+                        UIApplication.shared.open(ExternalLink.discord)
+                    }
+                    Divider().overlay(Color.white.opacity(0.08))
+
+                    settingsRow(
+                        title: "Feedback",
+                        value: "Share an idea or issue",
+                        valueColor: Theme.accentBlue,
+                        icon: "chevron.right"
+                    ) {
+                        showFeedback = true
+                    }
+                    Divider().overlay(Color.white.opacity(0.08))
 
                     Button {
                         showSignOutConfirmation = true
@@ -76,6 +111,20 @@ struct SettingsView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
+        // Settings is where verification status is actually read, so it
+        // refreshes on open — and then keeps watching, but only while the
+        // status is one that resolves on its own. `in_progress` is waiting on
+        // stripe-identity-webhook, which can land at any moment; every other
+        // status is at rest and polling it would be pointless. The loop is
+        // bound to the view: `.task` cancels it when Settings closes.
+        .task {
+            await appState.refreshVerificationStatus()
+            while !Task.isCancelled, appState.user.verificationStatus == .inProgress {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { break }
+                await appState.refreshVerificationStatus()
+            }
+        }
         .sheet(isPresented: $showPrivacySheet) {
             PrivacyEditSheet()
         }
@@ -84,6 +133,12 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showEditUsername) {
             EditUsernameSheet()
+        }
+        // In-app rather than a browser hand-off: the board is read-and-post,
+        // so keeping it in a sheet means the user comes straight back to
+        // whatever they were doing.
+        .sheet(isPresented: $showFeedback) {
+            WebPreviewView(url: ExternalLink.feedback)
         }
         .sheet(isPresented: $showIdentityVerification) {
             // "Not now" rather than "Skip": there's no flow to skip past here,
@@ -187,6 +242,12 @@ struct SettingsView: View {
             .padding(.vertical, 16)
         }
     }
+}
+
+/// The off-app destinations Settings links out to.
+private enum ExternalLink {
+    static let discord = URL(string: "https://discord.com/invite/SjYNad553")!
+    static let feedback = URL(string: "https://thehumaninternet.featurebase.app/")!
 }
 
 #Preview {

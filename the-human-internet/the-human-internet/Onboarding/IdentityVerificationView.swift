@@ -18,14 +18,9 @@ struct IdentityVerificationView: View {
     /// verified/failed outcome lands later, via the webhook.
     var onFinish: () -> Void
 
-    @State private var phoneNumber = ""
     @State private var isCreatingSession = false
     @State private var verificationURL: URL?
     @State private var errorMessage: String?
-
-    private var isValid: Bool {
-        !phoneNumber.trimmingCharacters(in: .whitespaces).isEmpty
-    }
 
     var body: some View {
         ZStack {
@@ -41,11 +36,17 @@ struct IdentityVerificationView: View {
                     Text("If you do verify, you'll scan a government-issued ID and take a quick selfie. It will not be publicly visible and remains completely private.")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.textSecondary)
-                }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    FieldLabel(text: "Phone Number")
-                    HITextField(placeholder: "Phone Number", text: $phoneNumber, keyboardType: .phonePad)
+                    // Admin-only, and never reachable by a real user — see
+                    // `AppState.isStripeIdentityTestModeEnabled`. Without it
+                    // the two environments are indistinguishable from inside
+                    // the app, which is the one thing that makes testing
+                    // against both of them error-prone.
+                    if appState.isStripeIdentityTestModeEnabled {
+                        Text("Stripe test environment — this verification is a sandbox one and proves nothing about a real identity.")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.warning)
+                    }
                 }
 
                 Spacer()
@@ -53,9 +54,8 @@ struct IdentityVerificationView: View {
                 VStack(spacing: 12) {
                     PrimaryButton(
                         title: isCreatingSession ? "Starting verification…" : "Verify Identity",
-                        isEnabled: isValid && !isCreatingSession
+                        isEnabled: !isCreatingSession
                     ) {
-                        appState.user.phoneNumber = phoneNumber
                         startVerification()
                     }
 
@@ -69,10 +69,6 @@ struct IdentityVerificationView: View {
             }
             .padding(24)
             .padding(.top, 24)
-        }
-        .onAppear {
-            // Resuming after a previous session — prefill what was already entered.
-            phoneNumber = appState.user.phoneNumber
         }
         .fullScreenCover(
             isPresented: Binding(

@@ -8,24 +8,38 @@ import SwiftUI
 /// Manually kicks off flows that would otherwise only run once, mid-onboarding
 /// — useful for testing without resetting a user's `onboarding_step` via SQL.
 struct FlowTriggersView: View {
+    @Environment(AppState.self) private var appState
     @State private var isCreatingSession = false
     @State private var verificationURL: URL?
     @State private var errorMessage: String?
 
     var body: some View {
         List {
-            Button {
-                startIdentityVerification()
-            } label: {
-                HStack {
-                    Text("Identity Verification")
-                    if isCreatingSession {
-                        Spacer()
-                        ProgressView()
+            Section {
+                Button {
+                    startIdentityVerification()
+                } label: {
+                    HStack {
+                        Text("Identity Verification")
+                        if isCreatingSession {
+                            Spacer()
+                            ProgressView()
+                        }
                     }
                 }
+                .disabled(isCreatingSession)
+            } footer: {
+                // Which environment this actually hits is decided server-side
+                // by `stripe-identity-session`, from the same flag and the
+                // same is_admin check — this only reports it.
+                Text(
+                    appState.isStripeIdentityTestModeEnabled
+                        ? "Sessions are created in Stripe's test environment (sandbox)."
+                        : "Sessions are created in Stripe's live environment."
+                )
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textSecondary)
             }
-            .disabled(isCreatingSession)
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)

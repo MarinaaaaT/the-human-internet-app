@@ -18,6 +18,44 @@ import Testing
 /// and the flow dead-ends on a blank screen; too loose and an arbitrary origin
 /// inherits camera access on a screen that photographs a government ID.
 struct StripeIdentityHostPolicyTests {
+    // MARK: - The return URL
+
+    /// The half that actually broke: Stripe validates `return_url` and
+    /// answers `url_invalid` for a custom scheme, so every session creation
+    /// 400'd before this became an https URL. These pin it against the
+    /// `RETURN_URL` constant in the stripe-identity-session Edge Function,
+    /// which nothing else can check — a drift between them ends the flow on a
+    /// screen that never dismisses.
+    @Test("The https return_url is recognised")
+    func recognisesTheReturnURL() {
+        #expect(StripeIdentityHostPolicy.isReturnURL(URL(string: "https://the-human-internet.com/identity-verification-return")))
+        #expect(StripeIdentityHostPolicy.isReturnURL(URL(string: "https://www.the-human-internet.com/identity-verification-return")))
+        #expect(StripeIdentityHostPolicy.isReturnURL(URL(string: "https://the-human-internet.com/identity-verification-return/")))
+        #expect(StripeIdentityHostPolicy.isReturnURL(URL(string: "https://the-human-internet.com/identity-verification-return?x=1")))
+    }
+
+    /// Sessions minted before the switch to https still complete.
+    @Test("The legacy custom-scheme return is still recognised")
+    func recognisesTheLegacyCustomScheme() {
+        #expect(StripeIdentityHostPolicy.isReturnURL(URL(string: "thehumaninternet://identity-verification-return")))
+    }
+
+    /// Recognising the return URL cancels navigation and reports success, so
+    /// anything that isn't it must not be mistaken for it — least of all a
+    /// page on our own domain that merely starts with the same path.
+    @Test("Other URLs are not the return URL", arguments: [
+        "https://the-human-internet.com/",
+        "https://the-human-internet.com/identity-verification-returned",
+        "https://the-human-internet.com/identity-verification-return/extra",
+        "https://evil.com/identity-verification-return",
+        "https://the-human-internet.com.evil.com/identity-verification-return",
+        "http://the-human-internet.com/identity-verification-return",
+        "https://verify.stripe.com/start/test_abc123"
+    ])
+    func refusesEverythingElse(urlString: String) {
+        #expect(!StripeIdentityHostPolicy.isReturnURL(URL(string: urlString)))
+    }
+
     @Test("Stripe's hosted Identity host is allowed")
     func allowsTheHostedIdentityHost() {
         #expect(StripeIdentityHostPolicy.allows(host: "verify.stripe.com"))
