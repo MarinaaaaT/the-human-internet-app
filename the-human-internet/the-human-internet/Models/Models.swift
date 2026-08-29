@@ -93,14 +93,23 @@ enum DatabaseEnum {
     }
 }
 
-/// Maps 1:1 to a row in the `users` table. Deliberately has no SSN field:
-/// identity verification runs through Stripe Identity (document + selfie
-/// checks only), which never collects or sends an SSN.
+/// Maps 1:1 to a row in the `users` table, minus the columns the client has
+/// no business writing. Deliberately has no SSN field: identity verification
+/// runs through Stripe Identity (document + selfie checks only), which never
+/// collects or sends an SSN.
+///
+/// No phone number either, though `users.phone_number` still exists. It was
+/// collected on the verify screen and then read by *nothing* — not the app,
+/// not the Edge Functions, and certainly not Stripe, whose document + selfie
+/// session has no phone parameter. A required field standing in front of an
+/// optional step, gathering PII with no consumer, so it's gone. The column
+/// (`not null default ''`) is left in place: dropping it is a separate,
+/// destructive decision, and omitting the key from an upsert simply leaves
+/// existing values alone.
 struct HumanUser: Codable, Hashable {
     var id: UUID?
     var username: String = ""
     var profileIconIndex: Int = 0
-    var phoneNumber: String = ""
     var privacy: PrivacyLevel = .public_
     var verificationStatus: VerificationStatus = .unverified
     var onboardingStep: OnboardingStep = .profile
@@ -109,7 +118,6 @@ struct HumanUser: Codable, Hashable {
         case id
         case username
         case profileIconIndex = "profile_icon_index"
-        case phoneNumber = "phone_number"
         case privacy
         case verificationStatus = "verification_status"
         case onboardingStep = "onboarding_step"

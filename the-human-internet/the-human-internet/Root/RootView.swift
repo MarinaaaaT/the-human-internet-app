@@ -8,6 +8,7 @@ import Supabase
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isRestoringSession = true
     @State private var showDeveloperMenu = false
 
@@ -28,6 +29,15 @@ struct RootView: View {
         .preferredColorScheme(.dark)
         .onOpenURL { url in
             handle(url: url)
+        }
+        // Coming back from the background is the moment a verification that
+        // resolved while the app was away should become visible. Nothing
+        // pushes the webhook's write down to a running client, and `hydrate`
+        // only runs at cold launch — so without this the new status first
+        // appeared after a force-quit and relaunch.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await appState.refreshVerificationStatus() }
         }
         .background(
             // `appState.isAdmin` only ever becomes true post-hydrate (i.e.

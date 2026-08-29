@@ -8,14 +8,15 @@ import WebKit
 
 /// Presents Stripe's hosted Identity verification flow (document scan +
 /// selfie match) in a modal WKWebView. A dedicated wrapper rather than a
-/// reuse of Sharing/WebPreviewView.swift — that one serves an unrelated
-/// purpose (previewing the signed-out web page) and isn't suited to
-/// intercepting a return-URL redirect or granting camera access.
+/// reuse of Sharing/WebPreviewView.swift — that one is a plain read-only
+/// web sheet, and isn't suited to intercepting a return-URL redirect or
+/// granting camera access.
 struct StripeIdentityWebView: View {
     let url: URL
-    /// Called when Stripe redirects back to `thehumaninternet://identity-verification-return`,
-    /// meaning the user finished submitting (not necessarily verified yet —
-    /// that result arrives later via the stripe-identity-webhook Edge Function).
+    /// Called when Stripe redirects back to the session's `return_url`
+    /// (see `StripeIdentityHostPolicy.isReturnURL`), meaning the user finished
+    /// submitting — not necessarily verified yet, that result arrives later
+    /// via the stripe-identity-webhook Edge Function.
     var onComplete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -79,6 +80,39 @@ struct StripeIdentityWebView: View {
 enum StripeIdentityHostPolicy {
     private static let allowedHost = "verify.stripe.com"
 
+    /// Where Stripe sends the browser once the user has submitted — the
+    /// `return_url` on the VerificationSession, and a contract with the
+    /// `RETURN_URL` constant in the stripe-identity-session Edge Function.
+    /// A mismatch between the two is **silent**: Stripe completes, the web
+    /// view keeps sitting on the finished page, and nothing ever calls
+    /// `onComplete`.
+    ///
+    /// It is an `https` URL on our own domain rather than the
+    /// `thehumaninternet://` scheme used everywhere else, because Stripe
+    /// validates `return_url` and rejects a custom scheme outright with
+    /// `url_invalid` — which is what made every attempt to start a session
+    /// fail before this. Nothing is ever fetched from it: the navigation is
+    /// cancelled the moment it's recognised, so the path doesn't need to
+    /// exist on the website (a page there would only be seen if this
+    /// interception broke).
+    private static let returnHost = "the-human-internet.com"
+    private static let returnPath = "/identity-verification-return"
+
+    /// Checked *before* the allowlist below, since the return URL is
+    /// deliberately not on Stripe's domain and would otherwise be blocked as
+    /// a foreign origin.
+    static func isReturnURL(_ url: URL?) -> Bool {
+        guard let url, let scheme = url.scheme?.lowercased() else { return false }
+        // The old custom-scheme return_url is still recognised. It costs one
+        // comparison and means a session minted before this change still
+        // completes rather than hanging.
+        if scheme == VerifiedPhoto.deepLinkScheme { return true }
+        guard scheme == "https", let host = url.host?.lowercased() else { return false }
+        let isOurHost = host == returnHost || host == "www.\(returnHost)"
+        let path = url.path.hasSuffix("/") ? String(url.path.dropLast()) : url.path
+        return isOurHost && path == returnPath
+    }
+
     /// A `nil` host, or any host outside Stripe's Identity domain, is refused.
     /// The subdomain arm keeps the leading dot on purpose: a bare
     /// `hasSuffix("verify.stripe.com")` would also accept a lookalike like
@@ -108,9 +142,6 @@ private struct IdentityWebView: UIViewRepresentable {
     let url: URL
     @Binding var isLoading: Bool
     let onReturnURL: () -> Void
-
-    /// Matches the scheme registered for `thehumaninternet://...` deep links.
-    private static let returnScheme = "thehumaninternet"
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -147,7 +178,7 @@ private struct IdentityWebView: UIViewRepresentable {
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
             let requestURL = navigationAction.request.url
-            if requestURL?.scheme == IdentityWebView.returnScheme {
+            if StripeIdentityHostPolicy.isReturnURL(requestURL) {
                 decisionHandler(.cancel)
                 onReturnURL()
                 return

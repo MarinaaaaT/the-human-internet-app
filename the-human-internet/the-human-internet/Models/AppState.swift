@@ -42,11 +42,28 @@ final class AppState {
         audience(for: key).includes(isAdmin: isAdmin)
     }
 
-    /// Fails secure toward requiring verification — see
-    /// `FeatureFlagKey.fallbackAudience(for:)` for the direction each flag
-    /// falls back in, and why they differ.
+    /// Whether onboarding shows the Stripe Identity step at all. Off ⇒
+    /// `OnboardingFlowView` skips it and leaves the user `unverified`,
+    /// identically to their tapping Skip — see
+    /// `OnboardingFlowView.skipVerification()`.
     var isStripeIdentityVerificationEnabled: Bool {
         isEnabled(FeatureFlagKey.stripeIdentityVerification)
+    }
+
+    /// Whether this user's verification sessions run against Stripe's test
+    /// environment instead of live.
+    ///
+    /// Admin-gated twice over, deliberately. A sandbox verification proves
+    /// nothing about a real person, so it must never be what a real user
+    /// gets: the developer menu refuses to set this flag to `.all`
+    /// (`FeatureFlagPolicy`), and the `isAdmin` conjunct here means a value
+    /// written around that UI — direct SQL, some future build — still can't
+    /// reach a non-admin. Neither is load-bearing on its own: the check that
+    /// binds is the identical one `stripe-identity-session` makes server-side
+    /// before it picks a Stripe key. This property only decides what the app
+    /// *shows*.
+    var isStripeIdentityTestModeEnabled: Bool {
+        isAdmin && isEnabled(FeatureFlagKey.stripeIdentityTestMode)
     }
 
     /// Fails secure the other direction from the flag above — on-device
@@ -114,6 +131,30 @@ final class AppState {
         deepLinkedPhoto = nil
         isAdmin = false
         featureFlags = [:]
+    }
+
+    /// Pulls the current `verification_status` down onto `user`, leaving the
+    /// rest of the row alone. Best-effort by design: this runs on foregrounding
+    /// and on a timer, where a failed read should cost nothing and simply be
+    /// retried on the next tick rather than surfacing an alert.
+    ///
+    /// Deliberately not a `hydrate`. That refetches photos and resumes uploads,
+    /// and its `photos = fetchAll(...)` would briefly drop optimistically
+    /// inserted pending captures — fine at launch, wrong on every return to
+    /// the foreground.
+    func refreshVerificationStatus() async {
+        guard let userID = user.id else { return }
+        do {
+            let status = try await UserProfileRepository.fetchVerificationStatus(userID: userID)
+            if status != user.verificationStatus {
+                Log.onboarding.info(
+                    "Verification status changed to \(status.rawValue, privacy: .public)"
+                )
+                user.verificationStatus = status
+            }
+        } catch {
+            Log.onboarding.error("Refreshing verification status failed: \(error, privacy: .public)")
+        }
     }
 
     /// The single place that turns "this identity is authenticated" into

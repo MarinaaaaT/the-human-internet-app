@@ -24,8 +24,11 @@ import Testing
 /// `users_onboarding_step_check`.
 struct HumanUserDecodingTests {
     /// Shaped like a real PostgREST row, extra server-side columns included:
-    /// `is_admin`, `created_at` and `stripe_identity_session_id` are all
-    /// deliberately absent from `HumanUser` and must stay ignorable.
+    /// `is_admin`, `created_at`, `stripe_identity_session_id` and
+    /// `phone_number` are all deliberately absent from `HumanUser` and must
+    /// stay ignorable. `phone_number` is the newest of them — the column still
+    /// exists and older rows still carry values, the app just stopped
+    /// collecting or reading it.
     private func userRowJSON(verificationStatus: String) -> Data {
         Data("""
         {

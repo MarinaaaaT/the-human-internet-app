@@ -39,18 +39,19 @@ struct OnboardingFlowView: View {
                         advance(to: .verify)
                     }
                 case .verify:
-                    // Admin-controlled kill switch (developer menu > Feature
-                    // Flags) for when Stripe Identity itself is unavailable —
-                    // skips straight through, leaving verification_status at
-                    // its default (pending) rather than getting users stuck.
+                    // Admin-controlled (developer menu > Feature Flags >
+                    // "Show Stripe Identity Verification"). Off ⇒ the step
+                    // isn't shown at all and `skipVerification` takes the
+                    // user through it on exactly the terms a manual Skip
+                    // would have.
                     if appState.isStripeIdentityVerificationEnabled {
                         // Both paths advance: verification is optional, so
                         // skipping is a legitimate way through the step. The
                         // difference is what `verificationStatus` is left at,
-                        // which IdentityVerificationView sets and `advance`
-                        // persists in the same upsert as the step itself.
+                        // which these two set and `advance` persists in the
+                        // same upsert as the step itself.
                         IdentityVerificationView(
-                            onSkip: { advance(to: .welcomeHuman) },
+                            onSkip: { skipVerification() },
                             onFinish: { advance(to: .welcomeHuman) }
                         )
                     } else {
@@ -58,7 +59,7 @@ struct OnboardingFlowView: View {
                             Theme.background.ignoresSafeArea()
                             ProgressView().tint(.white)
                         }
-                        .onAppear { advance(to: .welcomeHuman) }
+                        .onAppear { skipVerification() }
                     }
                 case .welcomeHuman:
                     WelcomeHumanView {
@@ -88,6 +89,24 @@ struct OnboardingFlowView: View {
         } message: {
             Text(authErrorMessage ?? "")
         }
+    }
+
+    /// The two ways past the verify step without submitting anything —
+    /// tapping Skip, and the step being switched off by the feature flag —
+    /// have to leave a user in exactly the same place, so both come through
+    /// here. Stating `.unverified` outright is what makes them identical,
+    /// rather than each relying separately on it being the column default;
+    /// `advance` then persists it in the same upsert as the step.
+    ///
+    /// In practice this can only ever write `unverified` over `unverified`:
+    /// `prevent_self_verification_escalation` silently reverts every
+    /// client-side change to the column except `unverified -> in_progress`.
+    /// So it asserts a resting state — it is not, and cannot become, a way
+    /// to undo a real `verified`. That still needs the webhook or another
+    /// service_role caller.
+    private func skipVerification() {
+        appState.user.verificationStatus = .unverified
+        advance(to: .welcomeHuman)
     }
 
     /// Upserts before navigating — if the save fails (e.g. a username conflict
