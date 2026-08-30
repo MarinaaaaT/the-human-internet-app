@@ -1,5 +1,5 @@
 {
-  "originHash" : "0586107a9c2e5e02a0789daa6b28cf7b1d9865e3c3f6acd4d26480e49ec12120",
+  "originHash" : "250a80ad40312bb6b2681e5c73829d5fc16ec67dd5feb49fe9c3d45e61962d6b",
   "pins" : [
     {
       "identity" : "c2pa-swift",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "a2812bdebcff324aa68fecba804e10e2144d5e4f",
         "version" : "0.0.12"
+      }
+    },
+    {
+      "identity" : "newrelic-ios-agent-spm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/newrelic/newrelic-ios-agent-spm",
+      "state" : {
+        "revision" : "f4029fe90e01903df7d71e6e401cdda5137cdd19",
+        "version" : "7.7.6"
       }
     },
     {

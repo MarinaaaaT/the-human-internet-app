@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		6D184B17BCAF1856217A247E /* C2PA in Frameworks */ = {isa = PBXBuildFile; productRef = CE6E02C557E2169072B3B795 /* C2PA */; };
+		9CD1A00130450A0000294589 /* NewRelic in Frameworks */ = {isa = PBXBuildFile; productRef = 9CD1A00230450A0000294589 /* NewRelic */; };
 		9CBCE53930227350003A9C3F /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53830227350003A9C3F /* Auth */; };
 		9CBCE53B30227350003A9C3F /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53A30227350003A9C3F /* Functions */; };
 		9CBCE53D30227350003A9C3F /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53C30227350003A9C3F /* PostgREST */; };
@@ -69,6 +70,7 @@
 				9CBCE54330227350003A9C3F /* Supabase in Frameworks */,
 				9CBCE53F30227350003A9C3F /* Realtime in Frameworks */,
 				6D184B17BCAF1856217A247E /* C2PA in Frameworks */,
+				9CD1A00130450A0000294589 /* NewRelic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +121,7 @@
 				9CBCE4C230222E20003A9C3F /* Sources */,
 				9CBCE4C330222E20003A9C3F /* Frameworks */,
 				9CBCE4C430222E20003A9C3F /* Resources */,
+				9CD1A00430450A0000294589 /* New Relic dSYM upload */,
 			);
 			buildRules = (
 			);
@@ -136,6 +139,7 @@
 				9CBCE54030227350003A9C3F /* Storage */,
 				9CBCE54230227350003A9C3F /* Supabase */,
 				CE6E02C557E2169072B3B795 /* C2PA */,
+				9CD1A00230450A0000294589 /* NewRelic */,
 			);
 			productName = "the-human-internet";
 			productReference = 9CBCE4C630222E20003A9C3F /* the-human-internet.app */;
@@ -222,6 +226,7 @@
 			packageReferences = (
 				9CBCE53730227350003A9C3F /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				8648428A6B6097F225A1F77B /* XCRemoteSwiftPackageReference "c2pa-swift" */,
+				9CD1A00330450A0000294589 /* XCRemoteSwiftPackageReference "newrelic-ios-agent-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9CBCE4C730222E20003A9C3F /* Products */;
@@ -258,6 +263,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		9CD1A00430450A0000294589 /* New Relic dSYM upload */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "New Relic dSYM upload";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ ${CONFIGURATION} = \"Debug\" ]; then\n  echo \"Skipping DSYM upload CONFIGURATION: ${CONFIGURATION}\"\n  exit 0\nfi\nARTIFACT_DIR=\"${BUILD_DIR%Build/*}\"\n# The beta lane relocates resolved packages to <repo root>/SourcePackages\n# (cloned_source_packages_path, so CI can cache them). That is a sibling of\n# SRCROOT, not inside it or DerivedData, so New Relic's stock two-path find\n# comes up empty on CI and the archive dies on `/bin/sh \\\"\\\"`. Search the repo\n# root as well, and skip rather than fail if the tool still is not found.\nSCRIPT=`/usr/bin/find \"${SRCROOT}/..\" \"${ARTIFACT_DIR}\" -type f -name run-symbol-tool | head -n 1`\nif [ -z \"${SCRIPT}\" ]; then\n  echo \"warning: run-symbol-tool not found; skipping dSYM upload\"\n  exit 0\nfi\n/bin/sh \"${SCRIPT}\" \"AAdcd235ced05915d9caa235b382234d57ed4514a1-NRMA\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		9CBCE4C230222E20003A9C3F /* Sources */ = {
@@ -433,7 +456,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.thehumaninternet.app";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thehumaninternet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -458,7 +481,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.thehumaninternet.app";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thehumaninternet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -475,7 +498,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.thehumaninternet.appTests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thehumaninternet.appTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -493,7 +516,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.thehumaninternet.appTests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thehumaninternet.appTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -509,7 +532,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.thehumaninternet.appUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thehumaninternet.appUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -525,7 +548,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.thehumaninternet.appUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thehumaninternet.appUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -576,6 +599,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		9CD1A00330450A0000294589 /* XCRemoteSwiftPackageReference "newrelic-ios-agent-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/newrelic/newrelic-ios-agent-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.7.6;
+			};
+		};
 		8648428A6B6097F225A1F77B /* XCRemoteSwiftPackageReference "c2pa-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/contentauth/c2pa-swift";
@@ -595,6 +626,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		9CD1A00230450A0000294589 /* NewRelic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9CD1A00330450A0000294589 /* XCRemoteSwiftPackageReference "newrelic-ios-agent-spm" */;
+			productName = NewRelic;
+		};
 		9CBCE53830227350003A9C3F /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9CBCE53730227350003A9C3F /* XCRemoteSwiftPackageReference "supabase-swift" */;
