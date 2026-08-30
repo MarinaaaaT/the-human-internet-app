@@ -10,7 +10,21 @@ import Supabase
 @Observable
 final class AppState {
     var isOnboarded = false
-    var user = HumanUser()
+
+    /// Assigned from every path that can change who is signed in or what
+    /// they're called — `hydrate`, `handleSessionInvalidated`, the onboarding
+    /// profile step, and the Settings username sheet — which is why the
+    /// New Relic association hangs off `didSet` here rather than being
+    /// repeated at all four call sites. Four copies of that call is exactly
+    /// the shape that let the old duplicated sign-in logic drift apart.
+    ///
+    /// `Analytics.setUser` no-ops when the username hasn't actually changed,
+    /// so the frequent whole-row writes (`refreshVerificationStatus`) cost
+    /// nothing.
+    var user = HumanUser() {
+        didSet { Analytics.setUser(username: user.username) }
+    }
+
     var photos: [VerifiedPhoto] = []
 
     /// Never sourced from `user`/`HumanUser` — see

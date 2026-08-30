@@ -8,13 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		6D184B17BCAF1856217A247E /* C2PA in Frameworks */ = {isa = PBXBuildFile; productRef = CE6E02C557E2169072B3B795 /* C2PA */; };
-		9CD1A00130450A0000294589 /* NewRelic in Frameworks */ = {isa = PBXBuildFile; productRef = 9CD1A00230450A0000294589 /* NewRelic */; };
 		9CBCE53930227350003A9C3F /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53830227350003A9C3F /* Auth */; };
 		9CBCE53B30227350003A9C3F /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53A30227350003A9C3F /* Functions */; };
 		9CBCE53D30227350003A9C3F /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53C30227350003A9C3F /* PostgREST */; };
 		9CBCE53F30227350003A9C3F /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE53E30227350003A9C3F /* Realtime */; };
 		9CBCE54130227350003A9C3F /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE54030227350003A9C3F /* Storage */; };
 		9CBCE54330227350003A9C3F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 9CBCE54230227350003A9C3F /* Supabase */; };
+		9CD1A00130450A0000294589 /* NewRelic in Frameworks */ = {isa = PBXBuildFile; productRef = 9CD1A00230450A0000294589 /* NewRelic */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -599,14 +599,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		9CD1A00330450A0000294589 /* XCRemoteSwiftPackageReference "newrelic-ios-agent-spm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/newrelic/newrelic-ios-agent-spm";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 7.7.6;
-			};
-		};
 		8648428A6B6097F225A1F77B /* XCRemoteSwiftPackageReference "c2pa-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/contentauth/c2pa-swift";
@@ -623,14 +615,17 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		9CD1A00330450A0000294589 /* XCRemoteSwiftPackageReference "newrelic-ios-agent-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/newrelic/newrelic-ios-agent-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.7.6;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		9CD1A00230450A0000294589 /* NewRelic */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9CD1A00330450A0000294589 /* XCRemoteSwiftPackageReference "newrelic-ios-agent-spm" */;
-			productName = NewRelic;
-		};
 		9CBCE53830227350003A9C3F /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9CBCE53730227350003A9C3F /* XCRemoteSwiftPackageReference "supabase-swift" */;
@@ -660,6 +655,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9CBCE53730227350003A9C3F /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		9CD1A00230450A0000294589 /* NewRelic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9CD1A00330450A0000294589 /* XCRemoteSwiftPackageReference "newrelic-ios-agent-spm" */;
+			productName = NewRelic;
 		};
 		CE6E02C557E2169072B3B795 /* C2PA */ = {
 			isa = XCSwiftPackageProductDependency;
