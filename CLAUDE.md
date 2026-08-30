@@ -45,6 +45,7 @@ Xcode 16's synced-folder groups mean any `.swift` file dropped into the right su
 - Sign in with Apple (`AuthenticationServices` + `supabase.auth.signInWithIdToken`) — the *only* auth method
 - `AVFoundation` for camera capture; `Photos` (add-only) for the device-library copy; `WebKit` for the Stripe Identity flow and the web preview; [`c2pa-swift`](https://github.com/contentauth/c2pa-swift) (SPM, product `C2PA`) for content-credential signing — pre-1.0, ships a prebuilt XCFramework so there's no Rust toolchain to install
 - Custom URL scheme `thehumaninternet://photo/{id}` for deep links today; will swap to a real Universal Link (`applinks:the-human-internet.com`) once the website repo hosts an `apple-app-site-association` file — the in-app parsing/presentation logic is written to make that swap trivial
+- [`newrelic-ios-agent-spm`](https://github.com/newrelic/newrelic-ios-agent-spm) (SPM, product `NewRelic`) for mobile monitoring — see "Monitoring" below
 
 ### Why Sign in with Apple, not passkeys
 Passkeys were the original plan (matches the wireframes), but Supabase's passkey registration requires an *already-authenticated, confirmed, non-anonymous* user — which conflicts with a passkey-first signup flow with no prior account. Pivoted to Sign in with Apple, which creates-or-signs-in in one call via `signInWithIdToken`.
@@ -129,6 +130,37 @@ Real identity verification (document scan + selfie match) runs through **Stripe 
 - **Starting it after a skip**: Settings shows an "Identity Verification / Verify Identity" row **only while the `stripe_identity_verification` flag is on for that user *and* `verification_status` is `unverified`**, which presents the same `IdentityVerificationView` onboarding uses (with "Not now" in place of "Skip"). The flag condition is what makes it a real kill switch: with the step hidden from onboarding, Settings must not stay a back door into it. Only the action is hidden — the **Verification Status** row above it always shows, since a user's existing status stays true whether or not they can act on it. The `unverified` condition is separate and older: it's deliberately not offered at `in_progress`, because that user is waiting on the webhook and restarting would orphan their session. The dev menu's Flow Triggers entry ignores both conditions on purpose — bypassing them is what it's for.
 - **No retry UI for a `failed` status**: the sheet's copy no longer promises resubmission "within 14 days" (that removal threat is gone — verification is optional now), but there's still no resubmit action for someone whose verification actually failed. Pre-existing gap, not yet closed.
 
+## Monitoring (New Relic)
+
+Session replay, crashes, and HTTP traces, via the `newrelic-ios-agent-spm`
+package. `NewRelic.start` runs in `the_human_internetApp.init()` — there is no
+`AppDelegate` (pure SwiftUI lifecycle), and `init()` is the equivalent of the
+first line of `didFinishLaunchingWithOptions`. The application token is
+hardcoded there; it ships inside the IPA regardless so it isn't a secret, but
+this repo is public and it is therefore trivially greppable — rotate it from
+New Relic's app settings if that ever matters.
+
+- **The username is reported as the New Relic user id**
+  (`Logging/Analytics.swift`), so a replay or crash reads as a recognisable
+  person rather than a bare device. Hung off a `didSet` on `AppState.user`
+  rather than the four places that assign it (`hydrate`, the onboarding profile
+  step, the Settings username sheet, `handleSessionInvalidated`) — the same
+  don't-let-copies-drift reasoning that collapsed sign-in into `hydrate`. Note
+  it does hand the username to a third party, which `users.id` would not have.
+- **Skipping a no-change `setUserId` is load-bearing, not an optimisation.**
+  Per the SDK header, *changing* the id starts a brand-new New Relic session,
+  and `refreshVerificationStatus` rewrites the whole user row every 5s while a
+  verification is pending — unguarded, one session shreds into dozens. Sign-out
+  passes `nil`, which both clears the association and starts a fresh session so
+  the next person on a shared device is never filed under the previous one.
+- **The dSYM upload script deliberately differs from New Relic's snippet.**
+  Theirs searches only `$SRCROOT` and the DerivedData artifact dir, but the
+  `beta` lane's `cloned_source_packages_path` puts `run-symbol-tool` at
+  `<repo root>/SourcePackages` — a *sibling* of `SRCROOT`, in neither search
+  path. On CI the `find` came up empty and `/bin/sh ""` exited 127, taking the
+  archive down with it. It now searches the repo root too, and warns-and-skips
+  rather than failing. Re-check it if that fastlane path ever changes.
+
 ## Database (Supabase project `xpjkgngifffzdaikjakw`)
 
 - **`public.users`**: `id` (= `auth.users.id`), `username` (unique index, case-insensitive, only enforced once non-empty), `profile_icon_index`, `phone_number` (**no longer collected or read** — the verify screen's phone field was removed on 2026-08-29 since nothing consumed it, Stripe least of all; the column stays, `not null default ''`, and `HumanUser` simply omits the key), `privacy`, `verification_status`, `onboarding_step`, `stripe_identity_session_id`, `is_admin`, `created_at`. RLS: a user can only read/write their own row. **No SSN column exists anywhere — never add one.**
@@ -197,6 +229,9 @@ to know before touching any of it:
   rejects as ITMS-90208. It must run on the resolved SPM artifact *before*
   `build_app` — patching the signed output invalidates the signature. Re-check
   it on any `c2pa-swift` bump.
+- **The New Relic dSYM upload phase runs on every non-Debug build**, so it is
+  part of this pipeline now. It has been made fail-soft deliberately — see
+  "Monitoring (New Relic)" for why the stock snippet breaks here.
 - **Re-running a failed run reuses its build number**, which Apple rejects as a
   duplicate. Push a new commit instead.
 
