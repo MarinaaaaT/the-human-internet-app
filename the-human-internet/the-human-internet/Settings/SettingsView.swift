@@ -41,13 +41,18 @@ struct SettingsView: View {
                     // on your public verification page beyond the photo —
                     // your real name, your social handles.
                     //
-                    // Shown only to a verified user, and that is presentation
-                    // only. `get_verification_photo()` re-checks
-                    // `verification_status` server-side before it hands any
-                    // of these fields to the website, so this row appearing
-                    // (or not) can't be what decides whether an unverified
-                    // account gets to publish a name.
-                    if appState.user.verificationStatus == .verified {
+                    // Gated twice, and neither gate is the one that binds.
+                    // `get_verification_photo()` re-checks *both* server-side
+                    // — `verification_status`, and the same
+                    // `custom_verification_pages` flag resolved against the
+                    // photo's owner — before it hands any of these fields to
+                    // the website. So this row appearing (or not) can't be
+                    // what decides whether an unverified account publishes a
+                    // name, and switching the flag off retracts what's
+                    // already saved rather than just hiding the way to edit
+                    // it.
+                    if appState.isCustomVerificationPagesEnabled,
+                       appState.user.verificationStatus == .verified {
                         settingsRow(
                             title: "Verification Page",
                             value: "Customize",

@@ -77,6 +77,7 @@ struct FeatureFlagAudienceTests {
         #expect(!appState.isStripeIdentityVerificationEnabled)
         #expect(!appState.isStripeIdentityTestModeEnabled)
         #expect(!appState.isAWSServerSideSigningEnabled)
+        #expect(!appState.isCustomVerificationPagesEnabled)
     }
 
     /// Declared per flag rather than shared, even though all three agree
@@ -87,6 +88,7 @@ struct FeatureFlagAudienceTests {
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityVerification) == .off)
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityTestMode) == .off)
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.awsServerSideSigning) == .off)
+        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.customVerificationPages) == .off)
     }
 
     /// A flag guarding something this build doesn't implement yet.
@@ -159,5 +161,32 @@ struct FeatureFlagAudienceTests {
     @Test func otherFlagsCanStillBeSetToEveryone() {
         #expect(FeatureFlagPolicy.rejectionReason(setting: FeatureFlagKey.stripeIdentityVerification, to: .all) == nil)
         #expect(FeatureFlagPolicy.rejectionReason(setting: FeatureFlagKey.awsServerSideSigning, to: .all) == nil)
+        #expect(FeatureFlagPolicy.rejectionReason(setting: FeatureFlagKey.customVerificationPages, to: .all) == nil)
+    }
+
+    // MARK: - The verification-page flag
+
+    /// Dark-launchable like any other flag. Note what `admin` means for this
+    /// one specifically: the same resolution runs inside
+    /// `get_verification_photo()` against the photo's *owner*, so `admin`
+    /// publishes an admin's own customization to every signed-out visitor
+    /// while leaving everyone else's withheld.
+    @Test func customVerificationPagesResolvesLikeAnyOtherFlag() {
+        let appState = AppState()
+
+        appState.featureFlags = [FeatureFlagKey.customVerificationPages: .admin]
+        appState.isAdmin = false
+        #expect(!appState.isCustomVerificationPagesEnabled)
+
+        appState.isAdmin = true
+        #expect(appState.isCustomVerificationPagesEnabled)
+
+        appState.featureFlags = [FeatureFlagKey.customVerificationPages: .all]
+        appState.isAdmin = false
+        #expect(appState.isCustomVerificationPagesEnabled)
+
+        appState.featureFlags = [FeatureFlagKey.customVerificationPages: .off]
+        appState.isAdmin = true
+        #expect(!appState.isCustomVerificationPagesEnabled)
     }
 }
