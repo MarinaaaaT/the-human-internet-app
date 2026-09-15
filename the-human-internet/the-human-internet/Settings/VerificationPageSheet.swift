@@ -9,6 +9,14 @@ import SwiftUI
 /// signed-out verification page: their real name, and up to
 /// `SocialLink.maxCount` social handles.
 ///
+/// The name is **shown, not entered**. It comes from Stripe Identity's
+/// `verified_outputs`, stored by `stripe-identity-webhook` under the service
+/// role and guarded by triggers against any client write. The page renders
+/// it beside "taken by a real, verified human", so a name typed here would
+/// be a claim wearing our checkmark — which is exactly what an earlier
+/// version of this screen allowed. The toggle chooses whether it is
+/// published; nothing chooses what it says.
+///
 /// Reachable only from the Settings row that `verification_status ==
 /// .verified` gates, and that gate is presentation only — the one that binds
 /// is `get_verification_photo()`, which withholds every field edited here
@@ -25,8 +33,11 @@ struct VerificationPageSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showIdentity = false
-    @State private var firstName = ""
-    @State private var lastName = ""
+    /// Read from `users.verified_first_name`/`verified_last_name` when the
+    /// sheet opens. `nil` once loaded means Stripe never gave us a name for
+    /// this account — see `identitySection`.
+    @State private var verifiedName: String?
+    @State private var isLoadingVerifiedName = true
     @State private var links: [SocialLink] = []
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -66,6 +77,7 @@ struct VerificationPageSheet: View {
         .presentationDetents([.large])
         .presentationBackground(Theme.background)
         .onAppear(perform: loadFromUser)
+        .task { await loadVerifiedName() }
     }
 
     // MARK: - Sections
@@ -85,31 +97,52 @@ struct VerificationPageSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             FieldLabel(text: "IDENTITY")
 
+            // Disabled until the name is known, and permanently if there
+            // isn't one: switching it on would publish nothing, which reads
+            // as a bug rather than as the honest "we have no verified name
+            // for you" it actually is.
             Toggle(isOn: $showIdentity) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Show my name")
+                    Text("Show my verified name")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(.white)
-                    Text("Your verified first and last name, shown publicly.")
+                    Text(identitySubtitle)
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                 }
             }
             .tint(Theme.accentBlue)
+            .disabled(isLoadingVerifiedName || verifiedName == nil)
 
-            // The fields only exist while the toggle is on: a name typed
-            // into a disabled form reads as "saved and hidden", which is
-            // exactly the ambiguity to avoid on the one screen that decides
-            // whether a legal name goes on the public internet.
-            if showIdentity {
-                HITextField(placeholder: "First name", text: $firstName)
-                    .textContentType(.givenName)
-                    .textInputAutocapitalization(.words)
-                HITextField(placeholder: "Last name", text: $lastName)
-                    .textContentType(.familyName)
-                    .textInputAutocapitalization(.words)
+            if let verifiedName {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(Theme.success)
+                    Text(verifiedName)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white)
+                    Spacer()
+                }
+                .padding(14)
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else if !isLoadingVerifiedName {
+                Text("We don't have a verified name on file for your account. It's captured during identity verification — if yours predates that, it'll appear after your next verification.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
+    }
+
+    private var identitySubtitle: String {
+        if isLoadingVerifiedName { return "Checking…" }
+        return verifiedName == nil
+            ? "No verified name on file."
+            : "The name Stripe verified against your ID. You can't edit it here."
     }
 
     private var socialSection: some View {
@@ -202,9 +235,21 @@ struct VerificationPageSheet: View {
     private func loadFromUser() {
         let user = appState.user
         showIdentity = user.showIdentity
-        firstName = user.displayFirstName
-        lastName = user.displayLastName
         links = user.socialLinks.items
+    }
+
+    /// A failed read is reported as "no name on file" rather than as an
+    /// error. The consequence is the same — the toggle stays off — and it
+    /// keeps the sheet usable for editing handles, which is the rest of what
+    /// it's for.
+    private func loadVerifiedName() async {
+        defer { isLoadingVerifiedName = false }
+        guard let userID = appState.user.id else { return }
+        do {
+            verifiedName = try await UserProfileRepository.fetchVerifiedName(userID: userID)
+        } catch {
+            Log.settings.error("Reading the verified name failed: \(error, privacy: .public)")
+        }
     }
 
     private func save() {
@@ -224,15 +269,11 @@ struct VerificationPageSheet: View {
         }
 
         var updated = appState.user
-        updated.showIdentity = showIdentity
-        updated.displayFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
-        updated.displayLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Belt and braces: the toggle is already disabled without a verified
+        // name, but a saved `true` with nothing to show would leave the user
+        // believing their name is published when the page renders nothing.
+        updated.showIdentity = showIdentity && verifiedName != nil
         updated.socialLinks = SocialLinks(normalized)
-
-        if updated.showIdentity, updated.displayName.isEmpty {
-            errorMessage = "Add your name, or turn “Show my name” off."
-            return
-        }
 
         isSaving = true
         Task {

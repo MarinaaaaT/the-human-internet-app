@@ -269,23 +269,26 @@ struct HumanUser: Codable, Hashable {
     // MARK: Verification-page customization
     //
     // What a verified user chose to put on their public verification page
-    // beyond the photo itself — see `VerificationPageSheet`. These four ride
-    // along on the ordinary self-row upsert like everything else here, which
-    // means anyone can *write* them; that's fine, because nothing is written
-    // here that makes a claim. The claim is `verification_status`, which no
-    // client can write, and `get_verification_photo()` withholds all of this
-    // unless that column says `verified` — so filling these in while
-    // unverified achieves precisely nothing.
+    // beyond the photo itself — see `VerificationPageSheet`. Both ride along
+    // on the ordinary self-row upsert like everything else here, so anyone
+    // can *write* them; that's fine, because neither makes a claim. The
+    // claim is `verification_status`, which no client can write, and
+    // `get_verification_photo()` withholds all of this unless that column
+    // says `verified`.
+    //
+    // The user's **name** is deliberately not here. It used to be —
+    // `display_first_name` / `display_last_name`, typed by the user — and
+    // that was wrong: the page renders the name beside "taken by a real,
+    // verified human", so a self-authored one is a claim wearing our
+    // checkmark. It now comes from `users.verified_first_name` /
+    // `verified_last_name`, which only `stripe-identity-webhook` can write
+    // (see `UserProfileRepository.fetchVerifiedName`), and `showIdentity`
+    // decides only *whether* it's shown.
 
-    /// Shown as "First Last" on the verification page, and only when
-    /// `showIdentity` is on. Two columns rather than one so the app can ask
-    /// for them the way a person thinks of them.
-    var displayFirstName: String = ""
-    var displayLastName: String = ""
-
-    /// Opt-in, and off by default: putting a legal name next to a photo is
-    /// the most identifying thing this product does, so it happens only
-    /// because someone asked for it.
+    /// Opt-in, and off by default: publishing a legal name is the most
+    /// identifying thing this product does, so it happens only because
+    /// someone asked for it. What gets published is Stripe's verified name,
+    /// never anything typed in the app.
     var showIdentity: Bool = false
 
     var socialLinks: SocialLinks = SocialLinks()
@@ -297,18 +300,8 @@ struct HumanUser: Codable, Hashable {
         case privacy
         case verificationStatus = "verification_status"
         case onboardingStep = "onboarding_step"
-        case displayFirstName = "display_first_name"
-        case displayLastName = "display_last_name"
         case showIdentity = "show_identity"
         case socialLinks = "social_links"
-    }
-
-    /// `First Last`, collapsed sensibly when only one half is filled in.
-    /// Mirrors what `get_verification_photo()` composes server-side, so the
-    /// app's preview and the real page read the same.
-    var displayName: String {
-        "\(displayFirstName) \(displayLastName)"
-            .trimmingCharacters(in: .whitespaces)
     }
 }
 
