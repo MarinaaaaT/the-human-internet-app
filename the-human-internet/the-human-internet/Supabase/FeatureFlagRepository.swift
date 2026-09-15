@@ -21,6 +21,17 @@ enum FeatureFlagKey {
     /// binding check is the one `stripe-identity-session` makes server-side.
     static let stripeIdentityTestMode = "stripe_identity_test_mode"
     static let awsServerSideSigning = "aws_server_side_signing"
+    /// Whether Settings offers the verification-page editor — the developer
+    /// menu's "Custom Verification Pages".
+    ///
+    /// **The website does not read this flag**, and shouldn't: it holds only
+    /// the anon key, and a kill switch two independently-deployed clients
+    /// have to honour isn't one switch. `get_verification_photo()` resolves
+    /// it server-side instead — against the photo's *owner*, since the
+    /// viewer is anonymous — so switching this off both hides the editor
+    /// here and stops every already-saved customization from being
+    /// published, without shipping anything.
+    static let customVerificationPages = "custom_verification_pages"
 
     /// What a flag falls back to when the server has nothing this build can
     /// use: the row is missing, the flags never loaded, or the audience is a
@@ -49,6 +60,12 @@ enum FeatureFlagKey {
         // Remote signing is opt-in while it's being stood up, not somewhere
         // to end up by accident.
         case awsServerSideSigning: return .off
+        // Nothing is stranded by hiding the editor — a user who can't reach
+        // it keeps whatever they already saved, and the RPC is withholding
+        // it from the page anyway. Failing open would be the odd direction:
+        // it would start publishing real names off a flag this build
+        // couldn't even read.
+        case customVerificationPages: return .off
         default: return .off
         }
     }

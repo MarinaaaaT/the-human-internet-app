@@ -18,8 +18,9 @@ struct FeatureFlagsView: View {
                     key: FeatureFlagKey.stripeIdentityTestMode
                 )
                 flagPicker("AWS Server Side Signing", key: FeatureFlagKey.awsServerSideSigning)
+                flagPicker("Custom Verification Pages", key: FeatureFlagKey.customVerificationPages)
             } footer: {
-                Text("All: on for every user. Admin: on only for admin accounts — use it to try a change against real data before everyone gets it. Off: on for nobody.\n\nThe test environment flag is admin-only: All is refused, since a sandbox verification proves nothing about a real person.")
+                Text("All: on for every user. Admin: on only for admin accounts — use it to try a change against real data before everyone gets it. Off: on for nobody.\n\nThe test environment flag is admin-only: All is refused, since a sandbox verification proves nothing about a real person.\n\nCustom Verification Pages is also read server-side, resolved against each photo's owner — turning it off retracts names and handles from pages already out there, not just the editor in Settings.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
             }

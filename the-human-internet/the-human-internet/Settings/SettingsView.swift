@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var showVerificationInfo = false
     @State private var showIdentityVerification = false
     @State private var showEditUsername = false
+    @State private var showVerificationPage = false
     @State private var showFeedback = false
     @State private var showSignOutConfirmation = false
     @State private var signOutErrorMessage: String?
@@ -35,6 +36,33 @@ struct SettingsView: View {
                         showVerificationInfo = true
                     }
                     Divider().overlay(Color.white.opacity(0.08))
+
+                    // The reward for being verified: deciding what else goes
+                    // on your public verification page beyond the photo —
+                    // your real name, your social handles.
+                    //
+                    // Gated twice, and neither gate is the one that binds.
+                    // `get_verification_photo()` re-checks *both* server-side
+                    // — `verification_status`, and the same
+                    // `custom_verification_pages` flag resolved against the
+                    // photo's owner — before it hands any of these fields to
+                    // the website. So this row appearing (or not) can't be
+                    // what decides whether an unverified account publishes a
+                    // name, and switching the flag off retracts what's
+                    // already saved rather than just hiding the way to edit
+                    // it.
+                    if appState.isCustomVerificationPagesEnabled,
+                       appState.user.verificationStatus == .verified {
+                        settingsRow(
+                            title: "Verification Page",
+                            value: "Customize",
+                            valueColor: Theme.accentBlue,
+                            icon: "chevron.right"
+                        ) {
+                            showVerificationPage = true
+                        }
+                        Divider().overlay(Color.white.opacity(0.08))
+                    }
 
                     // Verification is optional and skippable during onboarding,
                     // so this is the way back to it — gated twice, for two
@@ -133,6 +161,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showEditUsername) {
             EditUsernameSheet()
+        }
+        .sheet(isPresented: $showVerificationPage) {
+            VerificationPageSheet()
         }
         // In-app rather than a browser hand-off: the board is read-and-post,
         // so keeping it in a sheet means the user comes straight back to
