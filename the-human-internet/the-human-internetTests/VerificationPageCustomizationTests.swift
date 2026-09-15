@@ -9,9 +9,17 @@ import Testing
 @testable import the_human_internet
 
 /// Pins the app's half of the verification-page customization contract —
-/// the `display_first_name` / `display_last_name` / `show_identity` /
-/// `social_links` columns on `public.users`, and what
-/// `get_verification_photo()` will and won't publish from them.
+/// the `show_identity` and `social_links` columns on `public.users`, and
+/// what `get_verification_photo()` will and won't publish from them.
+///
+/// The name is deliberately absent from `HumanUser`. It used to live here as
+/// `display_first_name` / `display_last_name`, typed by the user — and the
+/// verification page renders the name beside "taken by a real, verified
+/// human", so that was a self-authored claim wearing our checkmark. It now
+/// comes from `users.verified_first_name` / `verified_last_name`, written
+/// only by stripe-identity-webhook and guarded by triggers, and read through
+/// the narrow `UserProfileRepository.fetchVerifiedName`. The encoding test
+/// below is what keeps a name from creeping back onto the upsert.
 ///
 /// The handle rules matter more than they look. `users_social_links_check`
 /// rejects the *whole row*, and `HumanUser` round-trips through one upsert,
@@ -65,6 +73,9 @@ struct VerificationPageCustomizationTests {
 
     // MARK: - Decoding
 
+    /// Shaped like a real PostgREST row. `verified_first_name` /
+    /// `verified_last_name` are present exactly because `HumanUser` must
+    /// *ignore* them — they're read separately, never round-tripped.
     private func userRowJSON(socialLinks: String, showIdentity: Bool = true) -> Data {
         Data("""
         {
@@ -75,8 +86,8 @@ struct VerificationPageCustomizationTests {
           "privacy": "Public",
           "verification_status": "verified",
           "onboarding_step": "completed",
-          "display_first_name": "Marina",
-          "display_last_name": "Tassi",
+          "verified_first_name": "Marina",
+          "verified_last_name": "Tassi",
           "show_identity": \(showIdentity),
           "social_links": \(socialLinks)
         }
@@ -90,7 +101,6 @@ struct VerificationPageCustomizationTests {
         let user = try JSONDecoder().decode(HumanUser.self, from: json)
 
         #expect(user.showIdentity)
-        #expect(user.displayName == "Marina Tassi")
         #expect(user.socialLinks.items.map(\.platform) == [.instagram, .x])
         #expect(user.socialLinks.items.map(\.handle) == ["marina", "marina_t"])
     }
@@ -109,7 +119,7 @@ struct VerificationPageCustomizationTests {
         #expect(user.socialLinks.items.map(\.platform) == [.instagram])
         // The rest of the row still has to survive intact.
         #expect(user.username == "Marina")
-        #expect(user.displayName == "Marina Tassi")
+        #expect(user.showIdentity)
     }
 
     @Test func malformedEntriesDontTakeTheRowDownEither() throws {
@@ -134,15 +144,11 @@ struct VerificationPageCustomizationTests {
     @Test func encodesTheColumnNamesAndShapeTheDatabaseExpects() throws {
         var user = HumanUser(id: UUID())
         user.showIdentity = true
-        user.displayFirstName = "Marina"
-        user.displayLastName = "Tassi"
         user.socialLinks = SocialLinks([SocialLink(platform: .github, handle: "marina")])
 
         let encoded = try JSONSerialization.jsonObject(with: try JSONEncoder().encode(user)) as? [String: Any]
 
         #expect(encoded?["show_identity"] as? Bool == true)
-        #expect(encoded?["display_first_name"] as? String == "Marina")
-        #expect(encoded?["display_last_name"] as? String == "Tassi")
 
         let links = try #require(encoded?["social_links"] as? [[String: Any]])
         #expect(links.count == 1)
@@ -162,20 +168,49 @@ struct VerificationPageCustomizationTests {
         #expect(Set(SocialPlatform.allCases.map(\.rawValue)) == whitelisted)
     }
 
-    // MARK: - Display name
+    // MARK: - The name never rides on the upsert
 
-    /// `displayName` mirrors the `btrim(first || ' ' || last)` the RPC
-    /// composes, so the app's idea of the name matches the page's.
-    @Test(arguments: [
-        ("Marina", "Tassi", "Marina Tassi"),
-        ("Marina", "", "Marina"),
-        ("", "Tassi", "Tassi"),
-        ("", "", ""),
-    ])
-    func displayNameMatchesWhatTheRPCComposes(first: String, last: String, expected: String) {
-        var user = HumanUser()
-        user.displayFirstName = first
-        user.displayLastName = last
-        #expect(user.displayName == expected)
+    /// The regression guard for the reason this file exists.
+    ///
+    /// `HumanUser` round-trips through one whole-row upsert, so any name
+    /// field on it would be posted back by the client on every profile save
+    /// — and a client-supplied name is exactly what must never reach the
+    /// verification page. The `prevent_self_verified_name_change` trigger
+    /// would revert it, but silently, so the app would believe it had
+    /// written something it hadn't.
+    ///
+    /// If this fails, someone has put a name back on `HumanUser`. Read it
+    /// separately instead (`UserProfileRepository.fetchVerifiedName`).
+    @Test func theEncodedRowCarriesNoNameFieldAtAll() throws {
+        var user = HumanUser(id: UUID())
+        user.showIdentity = true
+        user.username = "Marina"
+
+        let encoded = try #require(
+            try JSONSerialization.jsonObject(with: try JSONEncoder().encode(user)) as? [String: Any]
+        )
+
+        for key in encoded.keys {
+            #expect(
+                !key.contains("name") || key == "username",
+                "HumanUser encoded an unexpected name-ish column: \(key)"
+            )
+        }
+        #expect(encoded["display_first_name"] == nil)
+        #expect(encoded["display_last_name"] == nil)
+        #expect(encoded["verified_first_name"] == nil)
+        #expect(encoded["verified_last_name"] == nil)
+    }
+
+    /// Decoding a row that carries the verified name must not surface it on
+    /// the model — otherwise it would be one refactor away from being
+    /// encoded again.
+    @Test func decodingIgnoresTheVerifiedNameColumns() throws {
+        let user = try JSONDecoder().decode(HumanUser.self, from: userRowJSON(socialLinks: "[]"))
+        let encoded = try #require(
+            try JSONSerialization.jsonObject(with: try JSONEncoder().encode(user)) as? [String: Any]
+        )
+        #expect(encoded["verified_first_name"] == nil)
+        #expect(encoded["verified_last_name"] == nil)
     }
 }

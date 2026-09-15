@@ -77,6 +77,43 @@ enum UserProfileRepository {
         return rows.first?.verificationStatus ?? .unverified
     }
 
+    /// The name Stripe Identity verified, as `First Last`, or `nil` if there
+    /// isn't one on file.
+    ///
+    /// Not a field on `HumanUser` for exactly the reason `is_admin` isn't
+    /// (below): that struct round-trips through `upsert`, and a user can
+    /// write their own full row. If the verified name rode along, the app
+    /// would post a name back on every profile save — and the whole point is
+    /// that this name comes from Stripe, not from the client. The
+    /// `prevent_self_verified_name_change` trigger would revert it anyway,
+    /// but silently, which is worse than never sending it at all.
+    ///
+    /// Read lazily by `VerificationPageSheet` rather than in
+    /// `AppState.hydrate`: one narrow query for one rarely-opened screen,
+    /// against a fifth round trip on every launch and sign-in.
+    static func fetchVerifiedName(userID: UUID) async throws -> String? {
+        struct Row: Decodable {
+            let verifiedFirstName: String
+            let verifiedLastName: String
+            enum CodingKeys: String, CodingKey {
+                case verifiedFirstName = "verified_first_name"
+                case verifiedLastName = "verified_last_name"
+            }
+        }
+        let rows: [Row] = try await supabase
+            .from("users")
+            .select("verified_first_name,verified_last_name")
+            .eq("id", value: userID)
+            .execute()
+            .value
+        guard let row = rows.first else { return nil }
+        // Composed the way `get_verification_photo()` composes it
+        // server-side, so the sheet shows exactly what the page will.
+        let name = "\(row.verifiedFirstName) \(row.verifiedLastName)"
+            .trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? nil : name
+    }
+
     /// Deliberately not a field on `HumanUser`: that struct round-trips
     /// through `upsert`, and `is_admin` must never be settable by writing
     /// the client's own copy of its row back — see the
