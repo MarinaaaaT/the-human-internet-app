@@ -137,6 +137,44 @@ enum SocialPlatform: String, CaseIterable, Identifiable, Codable, Hashable {
     }
 }
 
+extension SocialPlatform {
+    /// Where a handle points, built from a per-platform template — never
+    /// from stored text. A handle is an account name, not a URL, so the
+    /// worst a hostile value can do is point at the wrong account on the
+    /// right platform.
+    ///
+    /// Mirrors `SOCIAL_PLATFORMS` in the website's
+    /// `src/lib/photos/socialLinks.ts` exactly, so the in-app verification
+    /// page and the public one link to the same places.
+    /// `SocialPlatformLinkTests` pins every shape against that table.
+    func profileURL(handle: String) -> URL? {
+        // Revalidated rather than trusted: this builds a tappable link out
+        // of another user's data, and the check is one `allSatisfy` away.
+        guard SocialLink.isValid(handle: handle) else { return nil }
+        switch self {
+        case .instagram: return URL(string: "https://www.instagram.com/\(handle)/")
+        case .x: return URL(string: "https://x.com/\(handle)")
+        case .tiktok: return URL(string: "https://www.tiktok.com/@\(handle)")
+        case .youtube: return URL(string: "https://www.youtube.com/@\(handle)")
+        case .linkedin: return URL(string: "https://www.linkedin.com/in/\(handle)")
+        case .github: return URL(string: "https://github.com/\(handle)")
+        case .reddit: return URL(string: "https://www.reddit.com/user/\(handle)")
+        case .facebook: return URL(string: "https://www.facebook.com/\(handle)")
+        }
+    }
+
+    /// How the handle reads on that platform — `@marina`, `u/marina`, or
+    /// bare. Also mirrors the website, so the same account is written the
+    /// same way in both places.
+    func displayHandle(_ handle: String) -> String {
+        switch self {
+        case .instagram, .x, .tiktok, .youtube: return "@\(handle)"
+        case .reddit: return "u/\(handle)"
+        case .linkedin, .github, .facebook: return handle
+        }
+    }
+}
+
 /// One `{platform, handle}` entry in `users.social_links`.
 ///
 /// The handle is stored **bare** — no `@`, no scheme, no host. That's not a
@@ -242,6 +280,41 @@ struct SocialLinks: Codable, Hashable, ExpressibleByArrayLiteral {
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(items)
+    }
+}
+
+/// The owner-facing half of a verification page: who took the photo, and
+/// what they chose to publish alongside it.
+///
+/// Returned by the `get_photo_owner_profile(p_photo_id)` RPC rather than
+/// read from `users` — RLS there is self-only, so an app user opening
+/// someone else's link sees no row at all. The RPC is security-definer and
+/// granted to `authenticated` only.
+///
+/// Every gate lives in that function: `display_name` arrives non-nil only
+/// when the owner is verified, has `show_identity` on, and is covered by the
+/// `custom_verification_pages` flag; `socialLinks` is empty unless verified
+/// and flagged. Nothing here is re-decided client-side, exactly as on the
+/// website.
+///
+/// It has no privacy gate, unlike the web RPC — per the PRD, signed-in app
+/// users see full contents whether the owner is `Public` or `Humans Only`.
+/// That setting separates humans from the open internet, not humans from
+/// each other.
+struct PhotoOwnerProfile: Decodable, Hashable {
+    var username: String
+    var isVerified: Bool
+    /// Stripe's verified name, already composed as `First Last`. Never a
+    /// self-authored one — see `HumanUser`'s note on why that distinction is
+    /// the whole point.
+    var displayName: String?
+    var socialLinks: SocialLinks
+
+    enum CodingKeys: String, CodingKey {
+        case username
+        case isVerified = "is_verified"
+        case displayName = "display_name"
+        case socialLinks = "social_links"
     }
 }
 

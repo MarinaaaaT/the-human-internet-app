@@ -42,6 +42,22 @@ enum PhotoRepository {
         return rows.first
     }
 
+    /// Who took `photoID`, and what they publish alongside it — see
+    /// `PhotoOwnerProfile`.
+    ///
+    /// An RPC rather than a join, because there is no join available: RLS on
+    /// `users` is self-only, so selecting the owner's row from an app user's
+    /// session returns nothing. `get_photo_owner_profile` is
+    /// security-definer and hands back only the fields a verification page
+    /// shows, already gated.
+    static func fetchOwnerProfile(photoID: UUID) async throws -> PhotoOwnerProfile? {
+        let rows: [PhotoOwnerProfile] = try await supabase
+            .rpc("get_photo_owner_profile", params: ["p_photo_id": photoID.uuidString.lowercased()])
+            .execute()
+            .value
+        return rows.first
+    }
+
     static func fetchAll(userID: UUID) async throws -> [VerifiedPhoto] {
         try await supabase
             .from("photos")
