@@ -132,14 +132,19 @@ struct PhotoVerificationView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.textSecondary)
 
-            if let displayName = owner.displayName {
-                HStack(spacing: 6) {
+            if let identity = owner.verifiedIdentity {
+                HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 13))
                         .foregroundStyle(Theme.success)
-                    Text(displayName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                    // The full sentence when there's a date to cite,
+                    // otherwise the name alone — see `VerifiedIdentity`.
+                    Text(identity.statement ?? identity.displayName)
+                        .font(.system(size: identity.statement == nil ? 16 : 13))
+                        .fontWeight(identity.statement == nil ? .semibold : .regular)
+                        .foregroundStyle(identity.statement == nil ? .white : Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                 }
             }
 

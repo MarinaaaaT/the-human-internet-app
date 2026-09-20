@@ -283,6 +283,77 @@ struct SocialLinks: Codable, Hashable, ExpressibleByArrayLiteral {
     }
 }
 
+/// The Stripe-verified identity of an account, and the one sentence both
+/// verification surfaces state it with.
+///
+/// Exists so the wording can't drift: `PhotoVerificationView` shows it to a
+/// viewer and `VerificationPageSheet` shows the owner what will be
+/// published, and those two disagreeing about what the claim says would be
+/// worse than either wording being imperfect. The website composes the same
+/// sentence in `page.tsx`.
+struct VerifiedIdentity: Hashable {
+    /// As stored — usually shouting, straight off an identity document.
+    let rawName: String
+    /// When Stripe last verified. Nil for anyone verified before the app
+    /// started recording it.
+    let verifiedAt: Date?
+
+    /// The name as a person would write it. See `titleCased`.
+    var displayName: String { Self.titleCased(rawName) }
+
+    /// `Identity Last Verified by Stripe on {date} proving account owner is
+    /// {Name}`, or nil when there's no date — the name is still true then,
+    /// but the sentence wouldn't be, so callers fall back to `displayName`.
+    var statement: String? {
+        guard let verifiedAt else { return nil }
+        return "Identity Last Verified by Stripe on \(Self.formatted(verifiedAt)) proving account owner is \(displayName)"
+    }
+
+    /// Pinned to `en_US`, not the device locale. The sentence around it is
+    /// English either way, and the website hardcodes the same format
+    /// (`toLocaleDateString('en-US', …)` in `verificationPhoto.ts`) — the
+    /// same verification rendering two different dates on two surfaces
+    /// would undermine the one thing it's asserting.
+    static func formatted(_ date: Date) -> String {
+        date.formatted(
+            Date.FormatStyle(locale: Locale(identifier: "en_US"), timeZone: .current)
+                .month(.wide)
+                .day()
+                .year()
+        )
+    }
+
+    /// Re-cases a name that arrived shouting.
+    ///
+    /// Stripe reads these off identity documents, which are usually set
+    /// entirely in capitals — the live value is "JORDAN JAMES" / "FAVA".
+    /// Printed beside a verified badge that reads as a database dump rather
+    /// than a person.
+    ///
+    /// Only *fully* uppercase values are touched. Anything already carrying
+    /// a lowercase letter was cased deliberately ("van der Berg",
+    /// "McDonald") and is returned untouched, since re-casing it could only
+    /// make it worse. Apostrophes and hyphens count as word breaks, so
+    /// O'BRIEN and MARY-JANE come out right.
+    ///
+    /// Known limit: "MCDONALD" becomes "Mcdonald". Spotting the Mc/Mac/O'
+    /// class of surname from the string alone isn't reliable — the same rule
+    /// would turn "MACEY" into "MacEy" — so this stops short on purpose.
+    /// Mirrors `titleCaseName` in the website's `verificationPhoto.ts`.
+    static func titleCased(_ name: String) -> String {
+        guard name == name.uppercased() else { return name }
+
+        let breaks: Set<Character> = [" ", "-", "'", "\u{2019}"]
+        var result = ""
+        var atBoundary = true
+        for character in name.lowercased() {
+            result.append(atBoundary ? Character(character.uppercased()) : character)
+            atBoundary = breaks.contains(character)
+        }
+        return result
+    }
+}
+
 /// The owner-facing half of a verification page: who took the photo, and
 /// what they chose to publish alongside it.
 ///
@@ -308,13 +379,24 @@ struct PhotoOwnerProfile: Decodable, Hashable {
     /// self-authored one — see `HumanUser`'s note on why that distinction is
     /// the whole point.
     var displayName: String?
+    /// When Stripe last verified the owner. Gated identically to
+    /// `displayName` by the RPC — they're stated in one sentence, so they
+    /// arrive and vanish together.
+    var identityVerifiedAt: Date?
     var socialLinks: SocialLinks
 
     enum CodingKeys: String, CodingKey {
         case username
         case isVerified = "is_verified"
         case displayName = "display_name"
+        case identityVerifiedAt = "identity_verified_at"
         case socialLinks = "social_links"
+    }
+
+    /// The verified identity as one value, or nil when the owner publishes
+    /// no name.
+    var verifiedIdentity: VerifiedIdentity? {
+        displayName.map { VerifiedIdentity(rawName: $0, verifiedAt: identityVerifiedAt) }
     }
 }
 
