@@ -36,8 +36,8 @@ struct VerificationPageSheet: View {
     /// Read from `users.verified_first_name`/`verified_last_name` when the
     /// sheet opens. `nil` once loaded means Stripe never gave us a name for
     /// this account — see `identitySection`.
-    @State private var verifiedName: String?
-    @State private var isLoadingVerifiedName = true
+    @State private var verifiedIdentity: VerifiedIdentity?
+    @State private var isLoadingVerifiedIdentity = true
     @State private var links: [SocialLink] = []
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -77,7 +77,7 @@ struct VerificationPageSheet: View {
         .presentationDetents([.large])
         .presentationBackground(Theme.background)
         .onAppear(perform: loadFromUser)
-        .task { await loadVerifiedName() }
+        .task { await loadVerifiedIdentity() }
     }
 
     // MARK: - Sections
@@ -112,21 +112,25 @@ struct VerificationPageSheet: View {
                 }
             }
             .tint(Theme.accentBlue)
-            .disabled(isLoadingVerifiedName || verifiedName == nil)
+            .disabled(isLoadingVerifiedIdentity || verifiedIdentity == nil)
 
-            if let verifiedName {
-                HStack(spacing: 8) {
+            if let verifiedIdentity {
+                HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundStyle(Theme.success)
-                    Text(verifiedName)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
-                    Spacer()
+                    // Exactly what a viewer sees on the verification page —
+                    // same `VerifiedIdentity`, same sentence.
+                    Text(verifiedIdentity.statement ?? verifiedIdentity.displayName)
+                        .font(.system(size: verifiedIdentity.statement == nil ? 16 : 13))
+                        .fontWeight(verifiedIdentity.statement == nil ? .medium : .regular)
+                        .foregroundStyle(verifiedIdentity.statement == nil ? .white : Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                 }
                 .padding(14)
                 .background(Theme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
-            } else if !isLoadingVerifiedName {
+            } else if !isLoadingVerifiedIdentity {
                 Text("We don't have a verified name on file for your account. It's captured during identity verification — if yours predates that, it'll appear after your next verification.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
@@ -139,8 +143,8 @@ struct VerificationPageSheet: View {
     }
 
     private var identitySubtitle: String {
-        if isLoadingVerifiedName { return "Checking…" }
-        return verifiedName == nil
+        if isLoadingVerifiedIdentity { return "Checking…" }
+        return verifiedIdentity == nil
             ? "No verified name on file."
             : "The name Stripe verified against your ID. You can't edit it here."
     }
@@ -242,11 +246,11 @@ struct VerificationPageSheet: View {
     /// error. The consequence is the same — the toggle stays off — and it
     /// keeps the sheet usable for editing handles, which is the rest of what
     /// it's for.
-    private func loadVerifiedName() async {
-        defer { isLoadingVerifiedName = false }
+    private func loadVerifiedIdentity() async {
+        defer { isLoadingVerifiedIdentity = false }
         guard let userID = appState.user.id else { return }
         do {
-            verifiedName = try await UserProfileRepository.fetchVerifiedName(userID: userID)
+            verifiedIdentity = try await UserProfileRepository.fetchVerifiedIdentity(userID: userID)
         } catch {
             Log.settings.error("Reading the verified name failed: \(error, privacy: .public)")
         }
@@ -272,7 +276,7 @@ struct VerificationPageSheet: View {
         // Belt and braces: the toggle is already disabled without a verified
         // name, but a saved `true` with nothing to show would leave the user
         // believing their name is published when the page renders nothing.
-        updated.showIdentity = showIdentity && verifiedName != nil
+        updated.showIdentity = showIdentity && verifiedIdentity != nil
         updated.socialLinks = SocialLinks(normalized)
 
         isSaving = true
