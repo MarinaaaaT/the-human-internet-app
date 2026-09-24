@@ -39,6 +39,8 @@ struct HumanUserDecodingTests {
           "privacy": "Public",
           "verification_status": "\(verificationStatus)",
           "onboarding_step": "completed",
+          "show_identity": false,
+          "social_links": [],
           "stripe_identity_session_id": null,
           "is_admin": true,
           "created_at": "2026-08-04T21:01:31.731583+00:00"
@@ -87,7 +89,9 @@ struct HumanUserDecodingTests {
           "phone_number": "",
           "privacy": "Public",
           "verification_status": "verified",
-          "onboarding_step": "confirm_phone"
+          "onboarding_step": "confirm_phone",
+          "show_identity": false,
+          "social_links": []
         }
         """.utf8)
 
@@ -104,7 +108,9 @@ struct HumanUserDecodingTests {
           "phone_number": "",
           "privacy": "Followers Only",
           "verification_status": "verified",
-          "onboarding_step": "completed"
+          "onboarding_step": "completed",
+          "show_identity": false,
+          "social_links": []
         }
         """.utf8)
 

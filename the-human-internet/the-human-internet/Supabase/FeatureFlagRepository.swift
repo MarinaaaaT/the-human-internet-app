@@ -15,12 +15,16 @@ enum FeatureFlagKey {
     /// developer menu's "Show Stripe Identity Verification".
     static let stripeIdentityVerification = "stripe_identity_verification"
     /// Whether this user's verification sessions are created against
-    /// Stripe's test environment instead of live. Admin-only by
-    /// construction — see `FeatureFlagPolicy` and
+    /// Stripe's test environment instead of live. Switched from the
+    /// developer tools rather than the feature flags page, and admin-only by
+    /// construction — see `DeveloperToolsView` and
     /// `AppState.isStripeIdentityTestModeEnabled`, and note that the
     /// binding check is the one `stripe-identity-session` makes server-side.
+    ///
+    /// Still a remote flag, not a local setting, precisely because of that
+    /// server-side check: the Edge Function reads this row to pick a Stripe
+    /// key, so a device-only switch would change nothing.
     static let stripeIdentityTestMode = "stripe_identity_test_mode"
-    static let awsServerSideSigning = "aws_server_side_signing"
     /// Whether Settings offers the verification-page editor — the developer
     /// menu's "Custom Verification Pages".
     ///
@@ -57,9 +61,6 @@ enum FeatureFlagKey {
         // proves nothing about a real person, so it has to be switched on
         // deliberately, by an admin, every time.
         case stripeIdentityTestMode: return .off
-        // Remote signing is opt-in while it's being stood up, not somewhere
-        // to end up by accident.
-        case awsServerSideSigning: return .off
         // Nothing is stranded by hiding the editor — a user who can't reach
         // it keeps whatever they already saved, and the RPC is withholding
         // it from the page anyway. Failing open would be the odd direction:
@@ -106,24 +107,6 @@ enum FeatureFlagAudience: String, CaseIterable, Identifiable, Codable, Hashable 
         case .admin: return isAdmin
         case .off: return false
         }
-    }
-}
-
-/// Constraints on what a flag may be set *to*, checked before the developer
-/// menu writes anything.
-///
-/// Lives here rather than inside `FeatureFlagsView` so it can be tested
-/// without a view — the same reason `StripeIdentityHostPolicy` sits outside
-/// the web view it guards. This is a UI guard, not a security boundary: the
-/// database will happily store `all` on any flag, so anything that actually
-/// matters has to be enforced where it's read (`AppState`) and server-side
-/// (the `stripe-identity-session` Edge Function), which is where the test
-/// environment is really gated.
-enum FeatureFlagPolicy {
-    /// Why `audience` can't be applied to `key`, or `nil` if it can.
-    static func rejectionReason(setting key: String, to audience: FeatureFlagAudience) -> String? {
-        guard key == FeatureFlagKey.stripeIdentityTestMode, audience == .all else { return nil }
-        return "Non-admins should not be allowed to verify identity with Stripe sandbox."
     }
 }
 

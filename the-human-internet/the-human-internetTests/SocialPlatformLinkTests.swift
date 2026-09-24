@@ -23,7 +23,7 @@ import Testing
 /// One row of the website's table, transcribed. A named type rather than a
 /// tuple so `@Test(arguments:)` takes a single parameter — tuple
 /// destructuring past two elements isn't something to rely on.
-private struct PlatformExpectation: Sendable {
+struct PlatformExpectation: Sendable {
     let platform: SocialPlatform
     let url: String
     let display: String

@@ -11,16 +11,15 @@ struct FeatureFlagsView: View {
 
     var body: some View {
         List {
+            DevMenuDescription(
+                "Feature flags are shared: changing one changes the app for every user it applies to, not just for you."
+            )
+
             Section {
                 flagPicker("Show Stripe Identity Verification", key: FeatureFlagKey.stripeIdentityVerification)
-                flagPicker(
-                    "Use Test Environment for Stripe Identity Verification",
-                    key: FeatureFlagKey.stripeIdentityTestMode
-                )
-                flagPicker("AWS Server Side Signing", key: FeatureFlagKey.awsServerSideSigning)
                 flagPicker("Custom Verification Pages", key: FeatureFlagKey.customVerificationPages)
             } footer: {
-                Text("All: on for every user. Admin: on only for admin accounts — use it to try a change against real data before everyone gets it. Off: on for nobody.\n\nThe test environment flag is admin-only: All is refused, since a sandbox verification proves nothing about a real person.\n\nCustom Verification Pages is also read server-side, resolved against each photo's owner — turning it off retracts names and handles from pages already out there, not just the editor in Settings.")
+                Text("All: on for every user. Admin: on only for admin accounts — use it to try a change against real data before everyone gets it. Off: on for nobody.\n\nCustom Verification Pages is also read server-side, resolved against each photo's owner — turning it off retracts names and handles from pages already out there, not just the editor in Settings.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -62,30 +61,11 @@ struct FeatureFlagsView: View {
         .tint(Theme.accentBlue)
     }
 
-    /// Optimistic, revert-on-failure — same pattern as
-    /// `OnboardingFlowView.advance(to:)`. This writes through
-    /// `FeatureFlagRepository`, which RLS restricts to admins only, so a
-    /// failure here most likely means `appState.isAdmin` is stale.
-    ///
-    /// Reverting assigns the previous `FeatureFlagAudience?` back, so a flag
-    /// that was never in the dictionary returns to being absent rather than
-    /// getting pinned to whatever fallback the picker happened to display.
     private func setAudience(_ key: String, to audience: FeatureFlagAudience) {
-        // Refused outright rather than written and then reverted: nothing
-        // should ever observe this combination, briefly or otherwise. The
-        // picker re-reads `audience(for:)` and so snaps back on its own.
-        if let reason = FeatureFlagPolicy.rejectionReason(setting: key, to: audience) {
-            errorMessage = reason
-            return
-        }
-
-        let previous = appState.featureFlags[key]
-        appState.featureFlags[key] = audience
         Task {
             do {
-                try await FeatureFlagRepository.setAudience(key: key, audience: audience)
+                try await appState.setAudience(audience, for: key)
             } catch {
-                appState.featureFlags[key] = previous
                 errorMessage = "Please try again."
                 Log.devMenu.error("Setting feature flag \(key, privacy: .public) failed: \(error, privacy: .public)")
             }
