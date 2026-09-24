@@ -93,6 +93,313 @@ enum DatabaseEnum {
     }
 }
 
+/// A social account a verified user chose to show on their public
+/// verification page.
+///
+/// Values mirror the platform whitelist inside `is_valid_social_links()` on
+/// `public.users.social_links`, and `SOCIAL_PLATFORMS` in the website's
+/// `src/lib/photos/socialLinks.ts`. All three have to move together: the
+/// database rejects a platform it doesn't list (taking the whole upsert with
+/// it), and the website builds every href from its own copy of the table.
+enum SocialPlatform: String, CaseIterable, Identifiable, Codable, Hashable {
+    case instagram
+    case x
+    case tiktok
+    case youtube
+    case linkedin
+    case github
+    case reddit
+    case facebook
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .instagram: return "Instagram"
+        case .x: return "X"
+        case .tiktok: return "TikTok"
+        case .youtube: return "YouTube"
+        case .linkedin: return "LinkedIn"
+        case .github: return "GitHub"
+        case .reddit: return "Reddit"
+        case .facebook: return "Facebook"
+        }
+    }
+
+    /// What the handle is called on that platform, for the field's prompt.
+    var handlePlaceholder: String {
+        switch self {
+        case .linkedin: return "your-profile-slug"
+        case .facebook: return "your.profile"
+        case .reddit: return "username"
+        default: return "yourhandle"
+        }
+    }
+}
+
+extension SocialPlatform {
+    /// Where a handle points, built from a per-platform template — never
+    /// from stored text. A handle is an account name, not a URL, so the
+    /// worst a hostile value can do is point at the wrong account on the
+    /// right platform.
+    ///
+    /// Mirrors `SOCIAL_PLATFORMS` in the website's
+    /// `src/lib/photos/socialLinks.ts` exactly, so the in-app verification
+    /// page and the public one link to the same places.
+    /// `SocialPlatformLinkTests` pins every shape against that table.
+    func profileURL(handle: String) -> URL? {
+        // Revalidated rather than trusted: this builds a tappable link out
+        // of another user's data, and the check is one `allSatisfy` away.
+        guard SocialLink.isValid(handle: handle) else { return nil }
+        switch self {
+        case .instagram: return URL(string: "https://www.instagram.com/\(handle)/")
+        case .x: return URL(string: "https://x.com/\(handle)")
+        case .tiktok: return URL(string: "https://www.tiktok.com/@\(handle)")
+        case .youtube: return URL(string: "https://www.youtube.com/@\(handle)")
+        case .linkedin: return URL(string: "https://www.linkedin.com/in/\(handle)")
+        case .github: return URL(string: "https://github.com/\(handle)")
+        case .reddit: return URL(string: "https://www.reddit.com/user/\(handle)")
+        case .facebook: return URL(string: "https://www.facebook.com/\(handle)")
+        }
+    }
+
+    /// How the handle reads on that platform — `@marina`, `u/marina`, or
+    /// bare. Also mirrors the website, so the same account is written the
+    /// same way in both places.
+    func displayHandle(_ handle: String) -> String {
+        switch self {
+        case .instagram, .x, .tiktok, .youtube: return "@\(handle)"
+        case .reddit: return "u/\(handle)"
+        case .linkedin, .github, .facebook: return handle
+        }
+    }
+}
+
+/// One `{platform, handle}` entry in `users.social_links`.
+///
+/// The handle is stored **bare** — no `@`, no scheme, no host. That's not a
+/// formatting preference: the website builds each link from its own
+/// per-platform base URL and never from stored text, so a handle can't grow
+/// into an arbitrary link (or a `javascript:` one) on a page that signed-out
+/// strangers load. `handleCharacters` is the same set the database's
+/// `is_valid_social_links()` enforces, and a value outside it fails the
+/// CHECK constraint — which would reject the *whole* user upsert, username
+/// and privacy along with it. So normalise and validate before saving.
+struct SocialLink: Codable, Hashable, Identifiable {
+    var platform: SocialPlatform
+    var handle: String
+
+    enum CodingKeys: String, CodingKey {
+        case platform
+        case handle
+    }
+
+    /// Stable only within a single editing session — `social_links` is a
+    /// JSON array with no per-row identity of its own, so a list editor
+    /// needs something to key rows by that survives reordering and removal.
+    /// `var` rather than `let` only so `Decodable` synthesis stays quiet
+    /// about an immutable property it can't write.
+    var id = UUID()
+
+    init(platform: SocialPlatform, handle: String = "") {
+        self.platform = platform
+        self.handle = handle
+    }
+
+    static let maxCount = 5
+    static let maxHandleLength = 64
+
+    private static let handleCharacters = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    )
+
+    /// Trims and strips the leading `@` people type out of habit. Anything
+    /// else that's still invalid afterwards is reported rather than silently
+    /// mangled — quietly deleting characters out of someone's handle would
+    /// produce a link that resolves to a stranger.
+    static func normalize(handle: String) -> String {
+        var trimmed = handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.hasPrefix("@") {
+            trimmed.removeFirst()
+        }
+        return trimmed
+    }
+
+    static func isValid(handle: String) -> Bool {
+        !handle.isEmpty
+            && handle.count <= maxHandleLength
+            && handle.unicodeScalars.allSatisfy { handleCharacters.contains($0) }
+    }
+
+    var isValid: Bool { Self.isValid(handle: handle) }
+}
+
+/// `users.social_links` as a whole, wrapped purely so decoding can be
+/// lenient.
+///
+/// The reasoning is `DatabaseEnum`'s: this array is decoded as part of the
+/// user row in `AppState.hydrate`, immediately after Sign in with Apple, so
+/// a throw here is not a missing feature — it's nobody being able to sign
+/// in. A platform added to the database's whitelist reaches every installed
+/// build the moment someone saves one, long before those builds know the
+/// name, so an entry this build can't read is dropped and the rest of the
+/// row survives.
+///
+/// The cost of dropping rather than preserving: an old build that then saves
+/// its profile writes the shorter list back. That's one row of a list of at
+/// most five, visible in the editor before the user taps Save — against a
+/// lockout, it's the right trade.
+struct SocialLinks: Codable, Hashable, ExpressibleByArrayLiteral {
+    var items: [SocialLink]
+
+    init(_ items: [SocialLink] = []) {
+        self.items = items
+    }
+
+    init(arrayLiteral elements: SocialLink...) {
+        self.init(elements)
+    }
+
+    /// Decodes the array in one go through a wrapper whose own initialiser
+    /// swallows the failure. Decoding elements one at a time from an
+    /// unkeyed container can't work: a throwing `decode` doesn't advance
+    /// `currentIndex`, so the retry loop never terminates.
+    private struct Lenient: Decodable {
+        let value: SocialLink?
+
+        init(from decoder: Decoder) throws {
+            value = try? SocialLink(from: decoder)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode([Lenient].self)
+        items = raw.compactMap(\.value)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(items)
+    }
+}
+
+/// The Stripe-verified identity of an account, and the one sentence both
+/// verification surfaces state it with.
+///
+/// Exists so the wording can't drift: `PhotoVerificationView` shows it to a
+/// viewer and `VerificationPageSheet` shows the owner what will be
+/// published, and those two disagreeing about what the claim says would be
+/// worse than either wording being imperfect. The website composes the same
+/// sentence in `page.tsx`.
+struct VerifiedIdentity: Hashable {
+    /// As stored — usually shouting, straight off an identity document.
+    let rawName: String
+    /// When Stripe last verified. Nil for anyone verified before the app
+    /// started recording it.
+    let verifiedAt: Date?
+
+    /// The name as a person would write it. See `titleCased`.
+    var displayName: String { Self.titleCased(rawName) }
+
+    /// `Identity Last Verified by Stripe on {date} proving account owner is
+    /// {Name}`, or nil when there's no date — the name is still true then,
+    /// but the sentence wouldn't be, so callers fall back to `displayName`.
+    var statement: String? {
+        guard let verifiedAt else { return nil }
+        return "Identity Last Verified by Stripe on \(Self.formatted(verifiedAt)) proving account owner is \(displayName)"
+    }
+
+    /// Pinned to `en_US`, not the device locale. The sentence around it is
+    /// English either way, and the website hardcodes the same format
+    /// (`toLocaleDateString('en-US', …)` in `verificationPhoto.ts`) — the
+    /// same verification rendering two different dates on two surfaces
+    /// would undermine the one thing it's asserting.
+    static func formatted(_ date: Date) -> String {
+        date.formatted(
+            Date.FormatStyle(locale: Locale(identifier: "en_US"), timeZone: .current)
+                .month(.wide)
+                .day()
+                .year()
+        )
+    }
+
+    /// Re-cases a name that arrived shouting.
+    ///
+    /// Stripe reads these off identity documents, which are usually set
+    /// entirely in capitals — the live value is "JORDAN JAMES" / "FAVA".
+    /// Printed beside a verified badge that reads as a database dump rather
+    /// than a person.
+    ///
+    /// Only *fully* uppercase values are touched. Anything already carrying
+    /// a lowercase letter was cased deliberately ("van der Berg",
+    /// "McDonald") and is returned untouched, since re-casing it could only
+    /// make it worse. Apostrophes and hyphens count as word breaks, so
+    /// O'BRIEN and MARY-JANE come out right.
+    ///
+    /// Known limit: "MCDONALD" becomes "Mcdonald". Spotting the Mc/Mac/O'
+    /// class of surname from the string alone isn't reliable — the same rule
+    /// would turn "MACEY" into "MacEy" — so this stops short on purpose.
+    /// Mirrors `titleCaseName` in the website's `verificationPhoto.ts`.
+    static func titleCased(_ name: String) -> String {
+        guard name == name.uppercased() else { return name }
+
+        let breaks: Set<Character> = [" ", "-", "'", "\u{2019}"]
+        var result = ""
+        var atBoundary = true
+        for character in name.lowercased() {
+            result.append(atBoundary ? Character(character.uppercased()) : character)
+            atBoundary = breaks.contains(character)
+        }
+        return result
+    }
+}
+
+/// The owner-facing half of a verification page: who took the photo, and
+/// what they chose to publish alongside it.
+///
+/// Returned by the `get_photo_owner_profile(p_photo_id)` RPC rather than
+/// read from `users` — RLS there is self-only, so an app user opening
+/// someone else's link sees no row at all. The RPC is security-definer and
+/// granted to `authenticated` only.
+///
+/// Every gate lives in that function: `display_name` arrives non-nil only
+/// when the owner is verified, has `show_identity` on, and is covered by the
+/// `custom_verification_pages` flag; `socialLinks` is empty unless verified
+/// and flagged. Nothing here is re-decided client-side, exactly as on the
+/// website.
+///
+/// It has no privacy gate, unlike the web RPC — per the PRD, signed-in app
+/// users see full contents whether the owner is `Public` or `Humans Only`.
+/// That setting separates humans from the open internet, not humans from
+/// each other.
+struct PhotoOwnerProfile: Decodable, Hashable {
+    var username: String
+    var isVerified: Bool
+    /// Stripe's verified name, already composed as `First Last`. Never a
+    /// self-authored one — see `HumanUser`'s note on why that distinction is
+    /// the whole point.
+    var displayName: String?
+    /// When Stripe last verified the owner. Gated identically to
+    /// `displayName` by the RPC — they're stated in one sentence, so they
+    /// arrive and vanish together.
+    var identityVerifiedAt: Date?
+    var socialLinks: SocialLinks
+
+    enum CodingKeys: String, CodingKey {
+        case username
+        case isVerified = "is_verified"
+        case displayName = "display_name"
+        case identityVerifiedAt = "identity_verified_at"
+        case socialLinks = "social_links"
+    }
+
+    /// The verified identity as one value, or nil when the owner publishes
+    /// no name.
+    var verifiedIdentity: VerifiedIdentity? {
+        displayName.map { VerifiedIdentity(rawName: $0, verifiedAt: identityVerifiedAt) }
+    }
+}
+
 /// Maps 1:1 to a row in the `users` table, minus the columns the client has
 /// no business writing. Deliberately has no SSN field: identity verification
 /// runs through Stripe Identity (document + selfie checks only), which never
@@ -114,6 +421,33 @@ struct HumanUser: Codable, Hashable {
     var verificationStatus: VerificationStatus = .unverified
     var onboardingStep: OnboardingStep = .profile
 
+    // MARK: Verification-page customization
+    //
+    // What a verified user chose to put on their public verification page
+    // beyond the photo itself — see `VerificationPageSheet`. Both ride along
+    // on the ordinary self-row upsert like everything else here, so anyone
+    // can *write* them; that's fine, because neither makes a claim. The
+    // claim is `verification_status`, which no client can write, and
+    // `get_verification_photo()` withholds all of this unless that column
+    // says `verified`.
+    //
+    // The user's **name** is deliberately not here. It used to be —
+    // `display_first_name` / `display_last_name`, typed by the user — and
+    // that was wrong: the page renders the name beside "taken by a real,
+    // verified human", so a self-authored one is a claim wearing our
+    // checkmark. It now comes from `users.verified_first_name` /
+    // `verified_last_name`, which only `stripe-identity-webhook` can write
+    // (see `UserProfileRepository.fetchVerifiedName`), and `showIdentity`
+    // decides only *whether* it's shown.
+
+    /// Opt-in, and off by default: publishing a legal name is the most
+    /// identifying thing this product does, so it happens only because
+    /// someone asked for it. What gets published is Stripe's verified name,
+    /// never anything typed in the app.
+    var showIdentity: Bool = false
+
+    var socialLinks: SocialLinks = SocialLinks()
+
     enum CodingKeys: String, CodingKey {
         case id
         case username
@@ -121,6 +455,8 @@ struct HumanUser: Codable, Hashable {
         case privacy
         case verificationStatus = "verification_status"
         case onboardingStep = "onboarding_step"
+        case showIdentity = "show_identity"
+        case socialLinks = "social_links"
     }
 }
 
@@ -161,8 +497,11 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
     }
 
     /// Host of the public web verification page. Must stay in step with the
-    /// website's `/[photoId]` route.
-    private static let webHost = "the-human-internet.com"
+    /// website's `/[photoId]` route. Not private: `VerificationPageSheet`
+    /// names it when telling the user where their customizations show up,
+    /// and a second hardcoded copy of the host is exactly the drift this
+    /// contract can't afford.
+    static let webHost = "the-human-internet.com"
 
     /// Custom URL scheme registered in `Info.plist`. Swaps to a Universal
     /// Link once the website hosts an apple-app-site-association file.

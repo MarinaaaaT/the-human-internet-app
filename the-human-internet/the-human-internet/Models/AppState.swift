@@ -118,6 +118,18 @@ final class AppState {
         isAdmin && skipC2PASigningPreference
     }
 
+    /// Whether Settings offers the verification-page editor to a verified
+    /// user.
+    ///
+    /// Like `isStripeIdentityVerificationEnabled`, this only decides what the
+    /// app *shows*. The switch that binds is server-side: the same flag is
+    /// resolved inside `get_verification_photo()` against the photo's owner,
+    /// so turning it off stops already-saved names and handles from being
+    /// published too — which is the half a client-side check could never do.
+    var isCustomVerificationPagesEnabled: Bool {
+        isEnabled(FeatureFlagKey.customVerificationPages)
+    }
+
     /// IDs of photos in `photos` that are still being signed and/or
     /// uploaded to Supabase (optimistically inserted, not yet confirmed) or
     /// have failed and are waiting on a retry. Driven by `PhotoUploadQueue`;

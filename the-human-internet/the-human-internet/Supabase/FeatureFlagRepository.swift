@@ -25,12 +25,23 @@ enum FeatureFlagKey {
     /// server-side check: the Edge Function reads this row to pick a Stripe
     /// key, so a device-only switch would change nothing.
     static let stripeIdentityTestMode = "stripe_identity_test_mode"
+    /// Whether Settings offers the verification-page editor — the developer
+    /// menu's "Custom Verification Pages".
+    ///
+    /// **The website does not read this flag**, and shouldn't: it holds only
+    /// the anon key, and a kill switch two independently-deployed clients
+    /// have to honour isn't one switch. `get_verification_photo()` resolves
+    /// it server-side instead — against the photo's *owner*, since the
+    /// viewer is anonymous — so switching this off both hides the editor
+    /// here and stops every already-saved customization from being
+    /// published, without shipping anything.
+    static let customVerificationPages = "custom_verification_pages"
 
     /// What a flag falls back to when the server has nothing this build can
     /// use: the row is missing, the flags never loaded, or the audience is a
     /// string this build doesn't recognise.
     ///
-    /// Both land on `.off` today, but this stays a per-flag switch
+    /// All three land on `.off` today, but this stays a per-flag switch
     /// rather than collapsing into one shared default: the safe direction is
     /// a property of what a given flag guards, not of flags in general.
     /// `stripeIdentityVerification` fell back to `.all` for exactly that
@@ -50,6 +61,12 @@ enum FeatureFlagKey {
         // proves nothing about a real person, so it has to be switched on
         // deliberately, by an admin, every time.
         case stripeIdentityTestMode: return .off
+        // Nothing is stranded by hiding the editor — a user who can't reach
+        // it keeps whatever they already saved, and the RPC is withholding
+        // it from the page anyway. Failing open would be the odd direction:
+        // it would start publishing real names off a flag this build
+        // couldn't even read.
+        case customVerificationPages: return .off
         default: return .off
         }
     }
