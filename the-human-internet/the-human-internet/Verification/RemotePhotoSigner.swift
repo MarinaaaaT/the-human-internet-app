@@ -10,14 +10,13 @@ enum RemotePhotoSignerError: Error {
     case emptyResponse
 }
 
-/// Server-side counterpart to `PhotoSigner.sign(imageData:)`: same input/output
-/// shape (raw JPEG in, C2PA-signed JPEG out), but the signing key never
-/// touches this device. The Edge Function forwards the bytes to an AWS Lambda
-/// that signs via a KMS key it can call but never see the material of.
+/// The only C2PA signer: JPEG in, C2PA-signed JPEG out, with the signing key
+/// never touching this device. The Edge Function forwards the bytes to an AWS
+/// Lambda that signs via a KMS key it can call but never see the material of.
 ///
-/// Gated behind `AppState.isAWSServerSideSigningEnabled` — see
-/// `CameraCaptureView.capture()` for the switch between this and the
-/// on-device `PhotoSigner`.
+/// There's no on-device fallback — the bundled dev key that used to back one
+/// was removed. `PhotoUploadQueue.drive()` calls this for every photo unless
+/// an admin has switched on the developer tools' "Skip C2PA verification".
 enum RemotePhotoSigner {
     static func sign(imageData: Data) async throws -> Data {
         let options = FunctionInvokeOptions(body: imageData)

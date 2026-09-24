@@ -240,17 +240,18 @@ enum PhotoUploadQueue {
                     // watermarking afterward would invalidate that binding.
                     let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
 
-                    let signedData: Data
-                    if appState.isAWSServerSideSigningEnabled {
-                        signedData = try await RemotePhotoSigner.sign(imageData: watermarkedData)
-                    } else {
-                        // C2PA signing is a synchronous, potentially non-trivial
-                        // native call — detached so it doesn't block this task's
-                        // (main) actor.
-                        signedData = try await Task.detached(priority: .userInitiated) {
-                            try PhotoSigner.sign(imageData: watermarkedData)
-                        }.value
-                    }
+                    // The developer tools' "Skip C2PA verification": the
+                    // watermarked JPEG goes up as-is, with no manifest.
+                    // Everything downstream — the upload, the photos row, the
+                    // verification page — is unchanged, so an unsigned photo
+                    // is indistinguishable from a signed one until someone
+                    // reads its bytes. Admin-only; see
+                    // `AppState.isC2PASigningSkipped`. Decided per photo at
+                    // processing time, so a resumed upload follows whatever
+                    // the switch says now.
+                    let signedData = appState.isC2PASigningSkipped
+                        ? watermarkedData
+                        : try await RemotePhotoSigner.sign(imageData: watermarkedData)
                     try signedData.write(to: fileURL(for: photoID), options: .atomic)
                     markSigned(photoID: photoID)
                     imageData = signedData

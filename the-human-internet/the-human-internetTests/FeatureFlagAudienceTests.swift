@@ -42,24 +42,24 @@ struct FeatureFlagAudienceTests {
 
     @Test func adminOnlyFlagIsOffForANonAdmin() {
         let appState = AppState()
-        appState.featureFlags = [FeatureFlagKey.awsServerSideSigning: .admin]
+        appState.featureFlags = [FeatureFlagKey.stripeIdentityVerification: .admin]
 
         appState.isAdmin = false
-        #expect(!appState.isAWSServerSideSigningEnabled)
+        #expect(!appState.isStripeIdentityVerificationEnabled)
 
         appState.isAdmin = true
-        #expect(appState.isAWSServerSideSigningEnabled)
+        #expect(appState.isStripeIdentityVerificationEnabled)
     }
 
     /// The picker edits the server's value; it must not start showing "Off"
     /// to a non-admin just because the flag isn't on for them.
     @Test func theAudienceShownIsTheStoredOneNotTheResolvedOne() {
         let appState = AppState()
-        appState.featureFlags = [FeatureFlagKey.awsServerSideSigning: .admin]
+        appState.featureFlags = [FeatureFlagKey.stripeIdentityVerification: .admin]
         appState.isAdmin = false
 
-        #expect(appState.audience(for: FeatureFlagKey.awsServerSideSigning) == .admin)
-        #expect(!appState.isAWSServerSideSigningEnabled)
+        #expect(appState.audience(for: FeatureFlagKey.stripeIdentityVerification) == .admin)
+        #expect(!appState.isStripeIdentityVerificationEnabled)
     }
 
     // MARK: - Fallbacks
@@ -76,17 +76,15 @@ struct FeatureFlagAudienceTests {
 
         #expect(!appState.isStripeIdentityVerificationEnabled)
         #expect(!appState.isStripeIdentityTestModeEnabled)
-        #expect(!appState.isAWSServerSideSigningEnabled)
     }
 
-    /// Declared per flag rather than shared, even though all three agree
+    /// Declared per flag rather than shared, even though both agree
     /// today: the safe direction belongs to what a flag guards.
     /// `stripeIdentityVerification` fell back to `.all` while the verify step
     /// was mandatory, and moved once it wasn't.
     @Test func fallbacksAreDeclaredPerFlag() {
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityVerification) == .off)
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityTestMode) == .off)
-        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.awsServerSideSigning) == .off)
     }
 
     /// A flag guarding something this build doesn't implement yet.
@@ -113,8 +111,9 @@ struct FeatureFlagAudienceTests {
 
     // MARK: - The test-environment flag
 
-    /// The flag that must never resolve on for a real user. `.all` is refused
-    /// by the developer menu, but the resolution can't lean on that: a value
+    /// The flag that must never resolve on for a real user. The developer
+    /// tools' switch can only write `.admin` or `.off`, but the resolution
+    /// can't lean on that: a value
     /// written straight into the table, or by a build without the guard,
     /// reaches this code path all the same.
     @Test func testModeStaysOffForANonAdminEvenWhenSetToAll() {
@@ -137,27 +136,5 @@ struct FeatureFlagAudienceTests {
 
         appState.isAdmin = false
         #expect(!appState.isStripeIdentityTestModeEnabled)
-    }
-
-    /// The developer menu's half of the same rule.
-    @Test func thePickerRefusesToSetTheTestFlagToEveryone() {
-        #expect(
-            FeatureFlagPolicy.rejectionReason(
-                setting: FeatureFlagKey.stripeIdentityTestMode,
-                to: .all
-            ) == "Non-admins should not be allowed to verify identity with Stripe sandbox."
-        )
-    }
-
-    @Test func theTestFlagsOtherAudiencesArePermitted() {
-        #expect(FeatureFlagPolicy.rejectionReason(setting: FeatureFlagKey.stripeIdentityTestMode, to: .admin) == nil)
-        #expect(FeatureFlagPolicy.rejectionReason(setting: FeatureFlagKey.stripeIdentityTestMode, to: .off) == nil)
-    }
-
-    /// The restriction is specific to the sandbox flag — it must not leak
-    /// onto flags that are meant to reach everyone.
-    @Test func otherFlagsCanStillBeSetToEveryone() {
-        #expect(FeatureFlagPolicy.rejectionReason(setting: FeatureFlagKey.stripeIdentityVerification, to: .all) == nil)
-        #expect(FeatureFlagPolicy.rejectionReason(setting: FeatureFlagKey.awsServerSideSigning, to: .all) == nil)
     }
 }

@@ -50,6 +50,25 @@ final class AppState {
         featureFlags[key] ?? FeatureFlagKey.fallbackAudience(for: key)
     }
 
+    /// Writes a flag's audience from the developer menu. Optimistic,
+    /// revert-on-failure — same pattern as `OnboardingFlowView.advance(to:)`.
+    /// `FeatureFlagRepository` is restricted to admins by RLS, so a failure
+    /// here most likely means `isAdmin` is stale.
+    ///
+    /// Reverting assigns the previous `FeatureFlagAudience?` back, so a flag
+    /// that was never in the dictionary returns to being absent rather than
+    /// getting pinned to whatever fallback the UI happened to display.
+    func setAudience(_ audience: FeatureFlagAudience, for key: String) async throws {
+        let previous = featureFlags[key]
+        featureFlags[key] = audience
+        do {
+            try await FeatureFlagRepository.setAudience(key: key, audience: audience)
+        } catch {
+            featureFlags[key] = previous
+            throw error
+        }
+    }
+
     /// Resolves a flag against this user. `.admin` reads `isAdmin`, which
     /// `hydrate` fetches *before* the flags, so the two are never out of step.
     private func isEnabled(_ key: String) -> Bool {
@@ -69,8 +88,8 @@ final class AppState {
     ///
     /// Admin-gated twice over, deliberately. A sandbox verification proves
     /// nothing about a real person, so it must never be what a real user
-    /// gets: the developer menu refuses to set this flag to `.all`
-    /// (`FeatureFlagPolicy`), and the `isAdmin` conjunct here means a value
+    /// gets: the developer tools' switch only ever writes `.admin` or `.off`
+    /// (`DeveloperToolsView`), and the `isAdmin` conjunct here means a value
     /// written around that UI — direct SQL, some future build — still can't
     /// reach a non-admin. Neither is load-bearing on its own: the check that
     /// binds is the identical one `stripe-identity-session` makes server-side
@@ -80,10 +99,23 @@ final class AppState {
         isAdmin && isEnabled(FeatureFlagKey.stripeIdentityTestMode)
     }
 
-    /// Fails secure the other direction from the flag above — on-device
-    /// signing, not the remote path.
-    var isAWSServerSideSigningEnabled: Bool {
-        isEnabled(FeatureFlagKey.awsServerSideSigning)
+    /// The developer tools' "Skip C2PA verification" switch, as stored on
+    /// *this device* — unlike the feature flags above it's never written to
+    /// the server, so one admin testing with it can't change what another
+    /// admin's uploads carry. Read `isC2PASigningSkipped`, never this, to
+    /// decide whether to sign.
+    var skipC2PASigningPreference = UserDefaults.standard.bool(forKey: AppState.skipC2PASigningDefaultsKey) {
+        didSet { UserDefaults.standard.set(skipC2PASigningPreference, forKey: Self.skipC2PASigningDefaultsKey) }
+    }
+    private static let skipC2PASigningDefaultsKey = "devTools.skipC2PASigning"
+
+    /// Whether `PhotoUploadQueue` uploads photos watermarked but unsigned,
+    /// with no C2PA manifest. The `isAdmin` conjunct is what keeps the
+    /// preference from outliving the admin who set it: it's per-device, so a
+    /// non-admin signing in on the same phone would otherwise inherit it and
+    /// publish photos that make no provenance claim at all.
+    var isC2PASigningSkipped: Bool {
+        isAdmin && skipC2PASigningPreference
     }
 
     /// IDs of photos in `photos` that are still being signed and/or
