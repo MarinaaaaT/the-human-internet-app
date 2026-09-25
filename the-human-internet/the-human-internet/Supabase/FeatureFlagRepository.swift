@@ -36,6 +36,18 @@ enum FeatureFlagKey {
     /// here and stops every already-saved customization from being
     /// published, without shipping anything.
     static let customVerificationPages = "custom_verification_pages"
+    /// Whether `sign-photo` refuses to sign without a valid App Attest
+    /// assertion — the developer menu's "Require App Attest for Signing".
+    ///
+    /// **Read only server-side.** This build attests whenever the device
+    /// can, whatever the flag says (`AppAttestService`); the flag decides
+    /// only what the Edge Function does with a request that arrives without
+    /// one. It's here purely so the dev menu can roll it out: `admin` first,
+    /// on a physical device (App Attest doesn't exist in the Simulator, so an
+    /// admin testing there can't upload while it's on for them), then `all`
+    /// once no build that predates attestation is still in use — every one
+    /// of those would stop uploading.
+    static let requireAppAttest = "require_app_attest"
 
     /// What a flag falls back to when the server has nothing this build can
     /// use: the row is missing, the flags never loaded, or the audience is a
@@ -67,6 +79,10 @@ enum FeatureFlagKey {
         // it would start publishing real names off a flag this build
         // couldn't even read.
         case customVerificationPages: return .off
+        // Never consulted by this build — sign-photo resolves it — so this
+        // only decides what the dev menu shows for a missing row, which the
+        // server also reads as off.
+        case requireAppAttest: return .off
         default: return .off
         }
     }
