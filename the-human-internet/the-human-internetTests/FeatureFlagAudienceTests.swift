@@ -87,6 +87,8 @@ struct FeatureFlagAudienceTests {
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityVerification) == .off)
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityTestMode) == .off)
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.customVerificationPages) == .off)
+        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.requireAppAttest) == .off)
+        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.serverSideWatermark) == .off)
     }
 
     /// A flag guarding something this build doesn't implement yet.

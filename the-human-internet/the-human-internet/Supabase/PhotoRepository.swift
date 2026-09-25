@@ -16,8 +16,21 @@ enum PhotoRepository {
     /// identity every time. Both the storage upload and the DB write use
     /// upsert, so calling this twice for the same `photoID` (e.g. the
     /// process died between the two) is harmless.
-    static func upload(imageData: Data, photoID: UUID, userID: UUID, capturedAt: Date, shortCode: String) async throws -> VerifiedPhoto {
-        let photo = VerifiedPhoto(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode)
+    /// `hasOriginal`: whether `sign-photo`'s capture pipeline stored this
+    /// photo's signed capture in `photo-originals`, which the row then points
+    /// at. `imageData` is always the watermarked photo — never the original.
+    static func upload(
+        imageData: Data,
+        photoID: UUID,
+        userID: UUID,
+        capturedAt: Date,
+        shortCode: String,
+        hasOriginal: Bool
+    ) async throws -> VerifiedPhoto {
+        var photo = VerifiedPhoto(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode)
+        if hasOriginal {
+            photo.originalStoragePath = VerifiedPhoto.originalStoragePath(userID: userID, photoID: photoID)
+        }
 
         // Uploaded to the path the photo itself carries, so the object and the
         // row can't disagree about where the bytes live.
@@ -77,6 +90,12 @@ enum PhotoRepository {
     /// the link. The Storage object cleanup after it is best-effort: a
     /// failure there just leaves an orphaned, otherwise-unreachable file
     /// behind rather than a dead link with a lingering row.
+    ///
+    /// The signed capture in `photo-originals` goes too. Its path is derived
+    /// rather than read from `originalStoragePath`, because a photo deleted
+    /// while still uploading can already have one stored by `sign-photo`
+    /// with no row pointing at it yet; removing an object that doesn't exist
+    /// is a no-op.
     static func delete(photo: VerifiedPhoto) async throws {
         try await supabase
             .from("photos")
@@ -84,6 +103,7 @@ enum PhotoRepository {
             .eq("id", value: photo.id)
             .execute()
         try? await supabase.storage.from("photos").remove(paths: [photo.storagePath])
+        try? await supabase.storage.from(VerifiedPhoto.originalsBucket).remove(paths: [originalPath(of: photo)])
     }
 
     /// Batched sibling of `delete(photo:)` — same DB-row-first, storage-is-best-effort
@@ -96,5 +116,10 @@ enum PhotoRepository {
             .in("id", values: photos.map(\.id))
             .execute()
         try? await supabase.storage.from("photos").remove(paths: photos.map(\.storagePath))
+        try? await supabase.storage.from(VerifiedPhoto.originalsBucket).remove(paths: photos.map(originalPath(of:)))
+    }
+
+    private static func originalPath(of photo: VerifiedPhoto) -> String {
+        VerifiedPhoto.originalStoragePath(userID: photo.userID, photoID: photo.id)
     }
 }
