@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+import UIKit
 
 @testable import the_human_internet
 
@@ -38,6 +39,23 @@ struct CapturePipelineTests {
     @Test func watermarkGeometryMatchesTheLambda() {
         #expect(PhotoWatermarker.markSizeFraction == 0.09)
         #expect(PhotoWatermarker.markPaddingFraction == 0.035)
+
+        // 1000×800 photo, 0.84-tall artwork: 72px wide, inset 28px.
+        let rect = PhotoWatermarker.markRect(in: CGSize(width: 1000, height: 800), markAspectRatio: 0.84)
+        #expect(abs(rect.minX - 900) < 0.001)
+        #expect(abs(rect.minY - 28) < 0.001)
+        #expect(abs(rect.width - 72) < 0.001)
+        #expect(abs(rect.height - 72 * 0.84) < 0.001)
+    }
+
+    /// The artwork ships in the app bundle. It must be the same PNG as the
+    /// Lambda's `assets/brand-mark.png` — asset catalogs recompress, so that
+    /// can't be byte-compared here; the dimensions stand in for it. When the
+    /// artwork changes, replace it in both repos and update this.
+    @Test func watermarkArtworkIsBundled() throws {
+        let mark = try #require(UIImage(named: PhotoWatermarker.markAssetName))
+        #expect(mark.size.width * mark.scale == 1024)
+        #expect(mark.size.height * mark.scale == 860)
     }
 
     /// A build must keep working against rows (and a schema) without the
