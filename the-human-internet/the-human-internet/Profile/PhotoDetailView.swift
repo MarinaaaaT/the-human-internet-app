@@ -28,13 +28,16 @@ struct PhotoDetailView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
             VStack(spacing: 0) {
-                ZStack(alignment: .topTrailing) {
-                    RemotePhotoImage(photo: photo, contentMode: .fit)
-                        .frame(maxWidth: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
-                    BrandMark(size: 28)
-                        .padding(16)
-                }
+                // No separate brand-mark overlay: the photo carries its own,
+                // burned in — or, until it does, `RemotePhotoImage` draws a
+                // provisional one in the same place.
+                RemotePhotoImage(
+                    photo: photo,
+                    contentMode: .fit,
+                    isProvisional: appState.provisionalPhotoIDs.contains(photo.id)
+                )
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 

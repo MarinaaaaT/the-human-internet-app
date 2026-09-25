@@ -12,12 +12,25 @@ enum PhotoWatermarkerError: Error {
     case encodeFailed
 }
 
-/// Burns the `BrandMark` logo into a captured JPEG's actual pixels — not
-/// just the in-app UI overlay `PhotoDetailView` draws over it — so the mark
-/// travels with the photo wherever it's uploaded, shared, or downloaded.
+/// Burns the `BrandMark` logo into a captured JPEG's actual pixels, so the
+/// mark travels with the photo wherever it's uploaded, shared, or downloaded.
 /// Deliberately not applied to the copy saved to the user's own device
 /// Photos library, which stays an untouched copy of exactly what they shot.
+///
+/// **No longer the main path.** With `server_side_watermark` on, the signing
+/// Lambda burns the mark in (`aws-signing-lambda/src/watermark.rs` in the
+/// backend repo) so the capture can be signed first and kept as the
+/// watermarked photo's C2PA ingredient. This stays for the flag-off path and
+/// for the developer tools' Skip C2PA, and the three renderings — this, the
+/// Lambda's, and `ProvisionalWatermark`'s overlay — must stay identical: the
+/// overlay is what a photo looks like until the real one replaces it.
 enum PhotoWatermarker {
+    /// Mark width, and its inset from the top and trailing edges, as
+    /// fractions of the image's shorter side. Mirrored by the Lambda's
+    /// `MARK_SIZE_FRACTION` / `MARK_PADDING_FRACTION`.
+    static let markSizeFraction: CGFloat = 0.09
+    static let markPaddingFraction: CGFloat = 0.035
+
     /// Runs the compositing off the main actor — real work at full photo
     /// resolution — but renders the small, fixed-size mark itself on the
     /// main actor first, since `ImageRenderer` requires it.
@@ -27,7 +40,7 @@ enum PhotoWatermarker {
         }
 
         let markImage = try await MainActor.run { () -> UIImage in
-            let markSize = min(baseImage.size.width, baseImage.size.height) * 0.09
+            let markSize = min(baseImage.size.width, baseImage.size.height) * PhotoWatermarker.markSizeFraction
             let renderer = ImageRenderer(content: BrandMark(size: markSize, color: Theme.accentPink))
             renderer.scale = baseImage.scale
             guard let markImage = renderer.uiImage else {
@@ -38,7 +51,7 @@ enum PhotoWatermarker {
 
         return try await Task.detached(priority: .userInitiated) {
             // Matches the top-trailing placement of the in-app overlay.
-            let padding = min(baseImage.size.width, baseImage.size.height) * 0.035
+            let padding = min(baseImage.size.width, baseImage.size.height) * PhotoWatermarker.markPaddingFraction
             let origin = CGPoint(
                 x: baseImage.size.width - markImage.size.width - padding,
                 y: padding

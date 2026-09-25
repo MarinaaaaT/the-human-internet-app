@@ -486,6 +486,15 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
     /// `generateShortCode()`. Generated once, client-side, alongside `id`
     /// (PhotoUploadQueue.enqueue) so it stays stable across retry attempts.
     var shortCode: String
+    /// Where this photo's **signed capture** lives in the private
+    /// `photo-originals` bucket — the C2PA parent ingredient of the
+    /// watermarked photo at `storagePath`, kept for photo history. `nil` for
+    /// photos watermarked on device, which have no separate original. Only
+    /// its owner can read it; the shared photo is always `storagePath`.
+    ///
+    /// Optional with a default so rows and builds that predate it decode and
+    /// encode unchanged (a `nil` is left out of the upsert entirely).
+    var originalStoragePath: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -494,6 +503,7 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
         case capturedAt = "captured_at"
         case verificationDeepLink = "verification_deep_link"
         case shortCode = "short_code"
+        case originalStoragePath = "original_storage_path"
     }
 
     /// Host of the public web verification page. Must stay in step with the
@@ -519,6 +529,18 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
     /// upload, so the client stays consistent defensively.
     static func storagePath(userID: UUID, photoID: UUID) -> String {
         "\(userID.uuidString.lowercased())/\(photoID.uuidString.lowercased()).jpg"
+    }
+
+    /// Private bucket `sign-photo` writes each signed capture to. Mirrored in
+    /// that Edge Function as `ORIGINALS_BUCKET`.
+    static let originalsBucket = "photo-originals"
+
+    /// Object path of a photo's signed capture in `originalsBucket`. The same
+    /// `{user_id}/{photo_id}.jpg` shape as `storagePath` — `sign-photo`
+    /// builds it independently from the caller's JWT and `X-Photo-Id`, so the
+    /// two must stay identical.
+    static func originalStoragePath(userID: UUID, photoID: UUID) -> String {
+        storagePath(userID: userID, photoID: photoID)
     }
 
     /// In-app deep link for a photo. Lowercased for the same reason as

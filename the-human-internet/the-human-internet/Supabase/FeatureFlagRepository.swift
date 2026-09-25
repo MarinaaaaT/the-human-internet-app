@@ -48,6 +48,19 @@ enum FeatureFlagKey {
     /// once no build that predates attestation is still in use — every one
     /// of those would stop uploading.
     static let requireAppAttest = "require_app_attest"
+    /// Whether the brand mark is burned in by the signing Lambda rather than
+    /// on device — the developer menu's "Server-Side Watermark". On ⇒
+    /// `PhotoUploadQueue` sends the raw capture through `sign-photo`'s
+    /// capture pipeline: the capture is signed as-is, the server watermarks
+    /// *that* and signs the result with the capture as its C2PA parent
+    /// ingredient, and keeps the signed capture in `photo-originals`. Off ⇒
+    /// the old path, watermark on device then sign.
+    ///
+    /// Read by the app only, and only to pick a path — the server serves
+    /// both. Turn it on only once the Lambda's `/watermark` route and the new
+    /// `sign-photo` are deployed; until then `RemotePhotoSigner` refuses the
+    /// response (it wouldn't confirm the pipeline) and uploads just retry.
+    static let serverSideWatermark = "server_side_watermark"
 
     /// What a flag falls back to when the server has nothing this build can
     /// use: the row is missing, the flags never loaded, or the audience is a
@@ -83,6 +96,9 @@ enum FeatureFlagKey {
         // only decides what the dev menu shows for a missing row, which the
         // server also reads as off.
         case requireAppAttest: return .off
+        // The path every build before this took, and the one that works
+        // against a backend that hasn't been deployed yet.
+        case serverSideWatermark: return .off
         default: return .off
         }
     }

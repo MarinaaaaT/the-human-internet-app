@@ -130,6 +130,13 @@ final class AppState {
         isEnabled(FeatureFlagKey.customVerificationPages)
     }
 
+    /// Whether new captures go through `sign-photo`'s capture pipeline
+    /// (server watermarks, capture kept as the C2PA ingredient) instead of
+    /// being watermarked on device. See `FeatureFlagKey.serverSideWatermark`.
+    var isServerSideWatermarkEnabled: Bool {
+        isEnabled(FeatureFlagKey.serverSideWatermark)
+    }
+
     /// IDs of photos in `photos` that are still being signed and/or
     /// uploaded to Supabase (optimistically inserted, not yet confirmed) or
     /// have failed and are waiting on a retry. Driven by `PhotoUploadQueue`;
@@ -137,6 +144,14 @@ final class AppState {
     /// capture on signing or the network.
     var processingPhotoIDs: Set<UUID> = []
     var failedPhotoIDs: Set<UUID> = []
+
+    /// Photos whose only copy is still the raw capture — nothing has burned
+    /// the brand mark in yet. `RemotePhotoImage` draws a matching mark over
+    /// these (`ProvisionalWatermark`) so every photo looks watermarked from
+    /// the moment it's taken, and swaps to the real watermarked bytes the
+    /// instant `PhotoUploadQueue` has them. A strict subset of
+    /// `processingPhotoIDs ∪ failedPhotoIDs`.
+    var provisionalPhotoIDs: Set<UUID> = []
 
     /// Collapses the two ID sets above into the single state a photo tile
     /// renders, so views receive a value instead of reaching into `AppState`
@@ -186,6 +201,7 @@ final class AppState {
         photos = []
         processingPhotoIDs = []
         failedPhotoIDs = []
+        provisionalPhotoIDs = []
         deepLinkedPhoto = nil
         isAdmin = false
         featureFlags = [:]

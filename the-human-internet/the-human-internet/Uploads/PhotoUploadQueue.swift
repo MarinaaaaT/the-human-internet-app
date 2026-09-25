@@ -10,6 +10,19 @@ import Foundation
 /// done) and the actual Supabase upload in the background — the capture
 /// flow never blocks on any of that.
 ///
+/// Watermarking + signing takes one of two paths, chosen per photo when it's
+/// processed:
+/// - **capture pipeline** (`server_side_watermark` on): the raw capture goes
+///   to `sign-photo`, which signs it, burns the mark into that signed
+///   capture server-side and signs the result with the capture as its C2PA
+///   parent ingredient — keeping the signed capture in `photo-originals` —
+///   and returns the watermarked photo;
+/// - **on-device watermark** (flag off, the older path): `PhotoWatermarker`
+///   burns the mark in here and `sign-photo` signs those bytes as-is.
+/// Either way what gets uploaded to `photos` is the watermarked photo, and
+/// until it exists the UI draws a matching mark over the raw capture — see
+/// `AppState.provisionalPhotoIDs`.
+///
 /// The on-disk manifest is the durable source of truth for "what's still
 /// pending"; `AppState.photos`/`processingPhotoIDs`/`failedPhotoIDs` are just
 /// an in-memory reflection of it for the UI. `AppState.hydrate` calls
@@ -23,6 +36,10 @@ enum PhotoUploadQueue {
         let capturedAt: Date
         let shortCode: String
         var isSigned: Bool
+        /// Set once the capture pipeline has stored this photo's signed
+        /// capture in `photo-originals`, so the upload — possibly after a
+        /// relaunch — records `original_storage_path` on the row.
+        var hasOriginal: Bool
 
         init(id: UUID, userID: UUID, capturedAt: Date, shortCode: String, isSigned: Bool) {
             self.id = id
@@ -30,6 +47,7 @@ enum PhotoUploadQueue {
             self.capturedAt = capturedAt
             self.shortCode = shortCode
             self.isSigned = isSigned
+            self.hasOriginal = false
         }
 
         // Entries written before signing moved into `drive()` have no
@@ -42,6 +60,7 @@ enum PhotoUploadQueue {
             capturedAt = try container.decode(Date.self, forKey: .capturedAt)
             shortCode = try container.decode(String.self, forKey: .shortCode)
             isSigned = try container.decodeIfPresent(Bool.self, forKey: .isSigned) ?? true
+            hasOriginal = try container.decodeIfPresent(Bool.self, forKey: .hasOriginal) ?? false
         }
     }
 
@@ -114,6 +133,7 @@ enum PhotoUploadQueue {
         var manifest = loadManifest()
         manifest.append(PendingUpload(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, isSigned: false))
         saveManifest(manifest)
+        appState.provisionalPhotoIDs.insert(photoID)
 
         drive(photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, appState: appState)
 
@@ -131,6 +151,9 @@ enum PhotoUploadQueue {
             if !appState.photos.contains(where: { $0.id == item.id }) {
                 let photo = VerifiedPhoto(id: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode)
                 appState.photos.append(photo)
+            }
+            if !item.isSigned {
+                appState.provisionalPhotoIDs.insert(item.id)
             }
             drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
         }
@@ -166,6 +189,7 @@ enum PhotoUploadQueue {
         try? FileManager.default.removeItem(at: fileURL(for: photoID))
         appState.processingPhotoIDs.remove(photoID)
         appState.failedPhotoIDs.remove(photoID)
+        appState.provisionalPhotoIDs.remove(photoID)
     }
 
     /// Deletes every pending file and manifest entry owned by `userID`.
@@ -234,31 +258,46 @@ enum PhotoUploadQueue {
                     await acquireProcessingSlot()
                     defer { releaseProcessingSlot() }
 
-                    // Burned into the pixels *before* signing, so the C2PA
-                    // manifest's hash binding covers the exact bytes that
-                    // get uploaded and shared — signing the raw capture and
-                    // watermarking afterward would invalidate that binding.
-                    let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
-
-                    // The developer tools' "Skip C2PA verification": the
-                    // watermarked JPEG goes up as-is, with no manifest.
-                    // Everything downstream — the upload, the photos row, the
-                    // verification page — is unchanged, so an unsigned photo
-                    // is indistinguishable from a signed one until someone
-                    // reads its bytes. Admin-only; see
-                    // `AppState.isC2PASigningSkipped`. Decided per photo at
-                    // processing time, so a resumed upload follows whatever
-                    // the switch says now.
-                    let signedData = appState.isC2PASigningSkipped
-                        ? watermarkedData
-                        : try await RemotePhotoSigner.sign(imageData: watermarkedData)
-                    try signedData.write(to: fileURL(for: photoID), options: .atomic)
-                    markSigned(photoID: photoID)
-                    imageData = signedData
+                    // Both paths are decided per photo at processing time,
+                    // so a resumed upload follows whatever the switches say
+                    // now. Both put the mark in the pixels *before* the final
+                    // signature, so the C2PA hash binding covers the exact
+                    // bytes that get uploaded and shared.
+                    let processedData: Data
+                    var hasOriginal = false
+                    if appState.isC2PASigningSkipped {
+                        // The developer tools' "Skip C2PA verification": the
+                        // watermarked JPEG goes up as-is, with no manifest.
+                        // Everything downstream — the upload, the photos row,
+                        // the verification page — is unchanged, so an
+                        // unsigned photo is indistinguishable from a signed
+                        // one until someone reads its bytes. Admin-only; see
+                        // `AppState.isC2PASigningSkipped`.
+                        processedData = try await PhotoWatermarker.watermark(imageData: imageData)
+                    } else if appState.isServerSideWatermarkEnabled {
+                        processedData = try await RemotePhotoSigner.signCapture(rawData: imageData, photoID: photoID)
+                        hasOriginal = true
+                    } else {
+                        let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
+                        processedData = try await RemotePhotoSigner.sign(imageData: watermarkedData)
+                    }
+                    // No `await` from here to the provisional removal: a view
+                    // that reloads on that change must find the final bytes
+                    // already on disk.
+                    try processedData.write(to: fileURL(for: photoID), options: .atomic)
+                    markSigned(photoID: photoID, hasOriginal: hasOriginal)
+                    appState.provisionalPhotoIDs.remove(photoID)
+                    imageData = processedData
                 }
 
+                let hasOriginal = loadManifest().first(where: { $0.id == photoID })?.hasOriginal ?? false
                 let photo = try await PhotoRepository.upload(
-                    imageData: imageData, photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode
+                    imageData: imageData,
+                    photoID: photoID,
+                    userID: userID,
+                    capturedAt: capturedAt,
+                    shortCode: shortCode,
+                    hasOriginal: hasOriginal
                 )
                 removeFromManifest(photoID: photoID)
                 try? FileManager.default.removeItem(at: fileURL(for: photoID))
@@ -274,10 +313,11 @@ enum PhotoUploadQueue {
         }
     }
 
-    private static func markSigned(photoID: UUID) {
+    private static func markSigned(photoID: UUID, hasOriginal: Bool) {
         var manifest = loadManifest()
         guard let index = manifest.firstIndex(where: { $0.id == photoID }) else { return }
         manifest[index].isSigned = true
+        manifest[index].hasOriginal = hasOriginal
         saveManifest(manifest)
     }
 

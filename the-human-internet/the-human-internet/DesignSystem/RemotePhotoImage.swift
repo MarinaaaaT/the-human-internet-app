@@ -22,18 +22,26 @@ struct RemotePhotoImage: View {
     /// get torn down on scroll, so there's nothing to cache, and they need
     /// the real resolution.
     var isThumbnail: Bool = false
+    /// The photo's only copy is still the raw capture, with no watermark in
+    /// its pixels yet (`AppState.provisionalPhotoIDs`). Draws
+    /// `ProvisionalWatermark` over it, and when this flips to `false` the
+    /// view reloads to pick up the real watermarked bytes. Passed in rather
+    /// than read from `AppState`, like the rest of this view's inputs.
+    var isProvisional: Bool = false
 
     @State private var image: UIImage?
     @State private var didFail = false
-    /// Which photo `image` actually belongs to. Call sites that reuse
-    /// one spot in the view tree for different photos over time — like
-    /// CameraCaptureView's last-photo thumbnail, which isn't in a ForEach —
-    /// keep this view's `@State` alive across a photo change, so the bytes
-    /// have to be matched against the current photo explicitly rather than
-    /// assumed fresh.
-    @State private var loadedPath: String?
+    /// Which photo — and which version of it — `image` actually belongs to.
+    /// Call sites that reuse one spot in the view tree for different photos
+    /// over time — like CameraCaptureView's last-photo thumbnail, which isn't
+    /// in a ForEach — keep this view's `@State` alive across a photo change,
+    /// so the bytes have to be matched against the current photo explicitly
+    /// rather than assumed fresh. The provisional flag is part of it so the
+    /// raw capture is replaced the moment the watermarked photo exists.
+    @State private var loadedKey: String?
 
-    private var isLoaded: Bool { loadedPath == photo.storagePath }
+    private var loadKey: String { "\(photo.storagePath)#\(isProvisional ? "raw" : "final")" }
+    private var isLoaded: Bool { loadedKey == loadKey }
 
     /// A 2-column grid renders each cell at well under this on any device
     /// size, so decoding to this cap loses no visible detail while using a
@@ -46,6 +54,12 @@ struct RemotePhotoImage: View {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: contentMode)
+                    // On the image itself, before any caller's clipping, so
+                    // the mark is placed against the whole photo even where
+                    // a `.fill` thumbnail crops it.
+                    .overlay {
+                        if isProvisional { ProvisionalWatermark() }
+                    }
             } else if didFail {
                 placeholder {
                     Image(systemName: "photo")
@@ -57,7 +71,7 @@ struct RemotePhotoImage: View {
                 }
             }
         }
-        .task(id: photo.storagePath) {
+        .task(id: loadKey) {
             // Guards on the *photo*, not merely on "have I loaded
             // something" — the latter left a reused view showing the
             // previous photo forever.
@@ -65,9 +79,11 @@ struct RemotePhotoImage: View {
             image = nil
             didFail = false
 
-            if isThumbnail, let cached = PhotoThumbnailCache.image(for: photo.storagePath) {
+            // The cache only ever holds final (watermarked) images — see
+            // `cacheAndSet` — so a provisional load always goes to disk.
+            if isThumbnail, !isProvisional, let cached = PhotoThumbnailCache.image(for: photo.storagePath) {
                 image = cached
-                loadedPath = photo.storagePath
+                loadedKey = loadKey
                 return
             }
 
@@ -90,10 +106,13 @@ struct RemotePhotoImage: View {
         }
     }
 
+    /// Never caches a raw capture: the cache is keyed by storage path alone,
+    /// so a cached raw frame would outlive the watermarked photo replacing it
+    /// and be shown, unmarked, for as long as the process lives.
     private func cacheAndSet(_ decoded: UIImage?) {
         image = decoded
-        loadedPath = photo.storagePath
-        if isThumbnail, let decoded {
+        loadedKey = loadKey
+        if isThumbnail, !isProvisional, let decoded {
             PhotoThumbnailCache.store(decoded, for: photo.storagePath)
         }
     }
