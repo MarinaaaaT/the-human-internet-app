@@ -15,19 +15,16 @@ struct PendingPhotosBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !appState.processingPhotoIDs.isEmpty {
-                row(
-                    text: "\(countText(appState.processingPhotoIDs.count)) still being verified",
-                    color: Theme.warning
-                )
+                row(text: "\(countText(appState.processingPhotoIDs.count)) still being verified")
+                    .foregroundStyle(Theme.textPrimary)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cornerRadius))
             }
             if !appState.failedPhotoIDs.isEmpty {
                 Button {
                     retryAllFailed()
                 } label: {
-                    row(
-                        text: "\(countText(appState.failedPhotoIDs.count)) failed to verify or save. Click this message to try again.",
-                        color: .red
-                    )
+                    row(text: "\(countText(appState.failedPhotoIDs.count)) failed to verify or save. Click this message to try again.")
+                        .ctaStyle()
                 }
             }
         }
@@ -47,15 +44,13 @@ struct PendingPhotosBanner: View {
         }
     }
 
-    private func row(text: String, color: Color) -> some View {
+    private func row(text: String) -> some View {
         Text(text)
             .font(Theme.font(size: 13, weight: .medium))
-            .foregroundStyle(color)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cornerRadius))
     }
 
     private func countText(_ count: Int) -> String {

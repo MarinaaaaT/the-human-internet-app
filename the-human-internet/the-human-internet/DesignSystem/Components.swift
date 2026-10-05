@@ -17,9 +17,7 @@ struct PrimaryButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
-        .background(Theme.accentBlue)
-        .foregroundStyle(.white)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+        .ctaStyle()
         .opacity(isEnabled ? 1 : 0.5)
         .disabled(!isEnabled)
     }
@@ -36,11 +34,7 @@ struct SecondaryButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
-        .foregroundStyle(.white)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-        )
+        .ctaStyle(secondary: true)
     }
 }
 
@@ -56,9 +50,7 @@ struct LightButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
-        .background(Color.white)
-        .foregroundStyle(Theme.background)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+        .ctaStyle()
         .opacity(isEnabled ? 1 : 0.5)
         .disabled(!isEnabled)
     }
@@ -70,16 +62,16 @@ struct HITextField: View {
     var keyboardType: UIKeyboardType = .default
 
     var body: some View {
-        TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.textSecondary))
+        TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.placeholder))
             .keyboardType(keyboardType)
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(Theme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Theme.divider, lineWidth: 1)
             )
     }
 }
@@ -97,7 +89,7 @@ struct FieldLabel: View {
 struct SheetGrabber: View {
     var body: some View {
         Capsule()
-            .fill(Color.white.opacity(0.2))
+            .fill(Color.black.opacity(0.2))
             .frame(width: 36, height: 4)
             .frame(maxWidth: .infinity)
     }
@@ -113,11 +105,11 @@ struct RadioRow: View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(isSelected ? Theme.accentBlue : Theme.textSecondary)
+                    .foregroundStyle(Theme.selection)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(Theme.font(size: 15, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     if let subtitle {
                         Text(subtitle)
                             .font(Theme.font(size: 12))

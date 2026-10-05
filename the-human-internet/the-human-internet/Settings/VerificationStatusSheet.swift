@@ -19,7 +19,7 @@ struct VerificationStatusSheet: View {
 
                 Text("Verification Status")
                     .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
                     Text(paragraph)

@@ -61,7 +61,7 @@ struct FeatureFlagsView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .pickerStyle(.menu)
-        .tint(Theme.accentBlue)
+        .tint(Theme.ctaForeground)
     }
 
     private func setAudience(_ key: String, to audience: FeatureFlagAudience) {

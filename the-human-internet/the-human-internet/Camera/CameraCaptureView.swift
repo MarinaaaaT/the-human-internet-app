@@ -76,9 +76,7 @@ struct CameraCaptureView: View {
                     } label: {
                         Image(systemName: "arrow.triangle.2.circlepath.camera")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(.black.opacity(0.35), in: Circle())
+                            .ctaIcon(diameter: 44)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -100,7 +98,7 @@ struct CameraCaptureView: View {
                                 )
                                     .frame(width: 48, height: 48)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.2), lineWidth: 1))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
                             }
                         } else {
                             Color.clear.frame(width: 48, height: 48)
@@ -112,9 +110,9 @@ struct CameraCaptureView: View {
                         capture()
                     } label: {
                         Circle()
-                            .fill(Color.white)
+                            .fill(Theme.ctaBackground)
                             .frame(width: 72, height: 72)
-                            .overlay(Circle().stroke(Color.black.opacity(0.15), lineWidth: 4).padding(4))
+                            .overlay(Circle().stroke(Theme.ctaForeground, lineWidth: 4).padding(4))
                     }
                 }
                 .padding(.horizontal, 32)
@@ -130,7 +128,7 @@ struct CameraCaptureView: View {
                 .foregroundStyle(Theme.textSecondary)
             Text("No camera available")
                 .font(Theme.font(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
             Text("This device doesn't have a usable camera — the Simulator, for instance, has none. Try a physical iPhone.")
                 .font(Theme.font(size: 14))
                 .foregroundStyle(Theme.textSecondary)
@@ -146,7 +144,7 @@ struct CameraCaptureView: View {
                 .foregroundStyle(Theme.textSecondary)
             Text("Camera access is off")
                 .font(Theme.font(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
             Text("Turn on camera access in Settings to take a photo.")
                 .font(Theme.font(size: 14))
                 .foregroundStyle(Theme.textSecondary)
@@ -157,7 +155,9 @@ struct CameraCaptureView: View {
                 }
             }
             .font(Theme.font(size: 15, weight: .semibold))
-            .foregroundStyle(Theme.accentBlue)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .ctaStyle()
             .padding(.top, 4)
         }
         .padding(32)

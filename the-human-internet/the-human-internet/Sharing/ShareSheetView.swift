@@ -67,7 +67,7 @@ struct ShareSheetView: View {
 
                 Text("Share your human photo")
                     .font(Theme.font(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 HStack(spacing: 20) {
                     ForEach(options) { option in
@@ -88,7 +88,7 @@ struct ShareSheetView: View {
                 }
                 .overlay {
                     if isPreparingShare {
-                        ProgressView().tint(.white)
+                        ProgressView().tint(Theme.textPrimary)
                     }
                 }
 
@@ -148,7 +148,10 @@ struct ShareSheetView: View {
                 Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
                     .font(.system(size: 12, weight: .medium))
             }
-            .foregroundStyle(didCopy ? Theme.success : Theme.textSecondary)
+            .foregroundStyle(didCopy ? Theme.success : Theme.ctaForeground)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Theme.ctaBackground, in: RoundedRectangle(cornerRadius: 10))
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -272,10 +275,7 @@ struct ShareSheetView: View {
         VStack(spacing: 6) {
             Image(systemName: option.symbol)
                 .font(.system(size: 20))
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(Theme.surface)
-                .clipShape(Circle())
+                .ctaIcon(diameter: 48)
             Text(option.label)
                 .font(Theme.font(size: 10))
                 .foregroundStyle(Theme.textSecondary)

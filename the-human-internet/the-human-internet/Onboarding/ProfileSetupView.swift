@@ -21,7 +21,7 @@ struct ProfileSetupView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Set up profile")
                         .font(Theme.font(size: 24, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("The information below may be visible to the public. It can be changed later.")
                         .font(Theme.font(size: 14))
                         .foregroundStyle(Theme.textSecondary)
@@ -40,12 +40,9 @@ struct ProfileSetupView: View {
                                 selectedIcon = index
                             } label: {
                                 Image(systemName: iconOptions[index])
-                                    .foregroundStyle(.white)
-                                    .frame(width: 44, height: 44)
-                                    .background(Theme.surface)
-                                    .clipShape(Circle())
+                                    .ctaIcon(diameter: 44)
                                     .overlay(
-                                        Circle().stroke(selectedIcon == index ? Theme.accentBlue : .clear, lineWidth: 2)
+                                        Circle().stroke(selectedIcon == index ? Theme.selection : .clear, lineWidth: 2)
                                     )
                             }
                         }

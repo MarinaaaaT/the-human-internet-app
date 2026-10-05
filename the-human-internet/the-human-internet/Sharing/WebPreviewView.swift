@@ -31,7 +31,7 @@ struct WebPreviewView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .ctaIcon()
                     }
                     Spacer()
                     Text(url.host ?? "")
@@ -39,7 +39,7 @@ struct WebPreviewView: View {
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     // Balances the close button so the host label stays centered.
-                    Color.clear.frame(width: 18, height: 18)
+                    Color.clear.frame(width: 36, height: 36)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -48,7 +48,7 @@ struct WebPreviewView: View {
                 ZStack {
                     WebView(url: url, isLoading: $isLoading)
                     if isLoading {
-                        ProgressView().tint(.white)
+                        ProgressView().tint(Theme.textPrimary)
                     }
                 }
             }

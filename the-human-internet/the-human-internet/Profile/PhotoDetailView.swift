@@ -59,7 +59,7 @@ struct PhotoDetailView: View {
                     showDeleteConfirmation = true
                 } label: {
                     Image(systemName: "trash")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.ctaForeground)
                 }
                 .disabled(isDeleting)
             }

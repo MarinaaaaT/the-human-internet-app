@@ -131,20 +131,20 @@ struct ProfileView: View {
             HStack {
                 Text("\(selectedPhotoIDs.count) photo\(selectedPhotoIDs.count == 1 ? "" : "s") selected")
                     .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 HStack(spacing: 16) {
                     Button {
                         selectedPhotoIDs.removeAll()
                     } label: {
                         Image(systemName: "xmark")
-                            .foregroundStyle(.white)
+                            .ctaIcon()
                     }
                     Button {
                         showDeleteConfirmation = true
                     } label: {
                         Image(systemName: "trash")
-                            .foregroundStyle(.red)
+                            .ctaIcon()
                     }
                 }
                 .disabled(isDeleting)
@@ -154,7 +154,7 @@ struct ProfileView: View {
                 HStack(spacing: 6) {
                     Text(appState.user.username.isEmpty ? "You" : appState.user.username)
                         .font(Theme.font(size: 20, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     if appState.user.verificationStatus == .verified {
                         Image(systemName: "checkmark.seal.fill")
                             .foregroundStyle(Theme.success)
@@ -165,7 +165,7 @@ struct ProfileView: View {
                     showSettings = true
                 } label: {
                     Image(systemName: "gearshape.fill")
-                        .foregroundStyle(.white)
+                        .ctaIcon()
                 }
             }
         }
