@@ -33,15 +33,15 @@ struct StripeIdentityWebView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .font(.system(size: 14, weight: .semibold))
+                            .ctaIcon()
                     }
                     Spacer()
                     Text("Verify with ID")
                         .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Color.clear.frame(width: 18, height: 18)
+                    Color.clear.frame(width: 36, height: 36)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -53,7 +53,7 @@ struct StripeIdentityWebView: View {
                         onComplete()
                     }
                     if isLoading {
-                        ProgressView().tint(.white)
+                        ProgressView().tint(Theme.textPrimary)
                     }
                 }
             }

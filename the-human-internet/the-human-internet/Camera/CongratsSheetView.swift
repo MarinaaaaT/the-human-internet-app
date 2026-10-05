@@ -16,7 +16,7 @@ struct CongratsSheetView: View {
                     .font(.system(size: 44))
                 Text("Congrats on your\nfirst verified photo!")
                     .font(Theme.font(size: 22, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: 14) {

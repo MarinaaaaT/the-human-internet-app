@@ -62,7 +62,7 @@ struct VerificationPageSheet: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(Theme.font(size: 13))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Theme.textPrimary)
                     }
 
                     PrimaryButton(title: isSaving ? "Saving…" : "Save", isEnabled: !isSaving) {
@@ -86,7 +86,7 @@ struct VerificationPageSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Verification Page")
                 .font(Theme.font(size: 20, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
             Text("Choose what people see next to your photo at \(VerifiedPhoto.webHost).")
                 .font(Theme.font(size: 13))
                 .foregroundStyle(Theme.textSecondary)
@@ -105,13 +105,13 @@ struct VerificationPageSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Show my verified name")
                         .font(Theme.font(size: 15, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(identitySubtitle)
                         .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                 }
             }
-            .tint(Theme.accentBlue)
+            .tint(Theme.selection)
             .disabled(isLoadingVerifiedIdentity || verifiedIdentity == nil)
 
             if let verifiedIdentity {
@@ -172,7 +172,9 @@ struct VerificationPageSheet: View {
                         Text("Add handle")
                             .font(Theme.font(size: 15, weight: .medium))
                     }
-                    .foregroundStyle(Theme.accentBlue)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .ctaStyle(cornerRadius: 10)
                 }
             }
         }
@@ -193,12 +195,10 @@ struct VerificationPageSheet: View {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .semibold))
                 }
-                .foregroundStyle(.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
                 .frame(minWidth: 108, alignment: .leading)
-                .background(Theme.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .ctaStyle(cornerRadius: 10)
             }
 
             HITextField(
@@ -212,7 +212,7 @@ struct VerificationPageSheet: View {
                 links.removeAll { $0.id == link.wrappedValue.id }
             } label: {
                 Image(systemName: "minus.circle")
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(Theme.ctaForeground)
             }
         }
     }
@@ -220,7 +220,7 @@ struct VerificationPageSheet: View {
     private var privacyNote: some View {
         Text("Your privacy is set to Humans Only, so your verification page hides your photo and username from signed-out visitors — and it hides this too. Switch to Public for any of it to show.")
             .font(Theme.font(size: 12))
-            .foregroundStyle(Theme.warning)
+            .foregroundStyle(Theme.textPrimary)
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.surface)

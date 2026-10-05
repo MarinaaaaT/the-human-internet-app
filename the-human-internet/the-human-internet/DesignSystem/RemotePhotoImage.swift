@@ -67,7 +67,7 @@ struct RemotePhotoImage: View {
                 }
             } else {
                 placeholder {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(Theme.textPrimary)
                 }
             }
         }

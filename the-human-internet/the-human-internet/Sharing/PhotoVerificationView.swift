@@ -41,8 +41,8 @@ struct PhotoVerificationView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .font(.system(size: 14, weight: .semibold))
+                            .ctaIcon()
                     }
                     Spacer()
                 }
@@ -53,7 +53,7 @@ struct PhotoVerificationView: View {
                     if isLoading {
                         Spacer()
                         ProgressView()
-                            .tint(.white)
+                            .tint(Theme.textPrimary)
                             .frame(maxWidth: .infinity)
                         Spacer()
                     } else if let photo {
@@ -83,7 +83,7 @@ struct PhotoVerificationView: View {
                         .foregroundStyle(Theme.success)
                     Text("This photo was taken by a real human!")
                         .font(Theme.font(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,12 +95,11 @@ struct PhotoVerificationView: View {
                 } label: {
                     (
                         Text("How do you know? ")
-                            .foregroundStyle(Theme.textSecondary)
                         + Text("Click here to learn more.")
-                            .foregroundStyle(.white)
                             .underline()
                     )
                     .font(Theme.font(size: 13))
+                    .foregroundStyle(Theme.textPrimary)
                 }
             }
             .padding(.horizontal, 20)
@@ -179,15 +178,12 @@ struct PhotoVerificationView: View {
     private func socialChip(_ link: SocialLink) -> some View {
         let label = HStack(spacing: 6) {
             Text(link.platform.displayName)
-                .foregroundStyle(Theme.textSecondary)
             Text(link.platform.displayHandle(link.handle))
-                .foregroundStyle(.white)
         }
         .font(Theme.font(size: 13))
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .ctaStyle(cornerRadius: 9)
 
         if let url = link.platform.profileURL(handle: link.handle) {
             Link(destination: url) { label }

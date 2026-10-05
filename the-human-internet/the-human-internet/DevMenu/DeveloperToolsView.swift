@@ -36,7 +36,7 @@ struct DeveloperToolsView: View {
                 footer("New photos are watermarked and uploaded as usual but not signed, so they carry no C2PA manifest. This device only.")
             }
         }
-        .tint(Theme.accentBlue)
+        .tint(Theme.selection)
         .scrollContentBackground(.hidden)
         .background(Theme.background)
         .navigationTitle("Developer Tools")

@@ -26,7 +26,7 @@ struct PreviewAsSheetView: View {
 
                 Text("Preview as…")
                     .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 VStack(alignment: .leading, spacing: 16) {
                     RadioRow(

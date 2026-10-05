@@ -20,14 +20,14 @@ struct EditUsernameSheet: View {
 
                 Text("Edit Username")
                     .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 HITextField(placeholder: "New username here", text: $username)
 
                 if let errorMessage {
                     Text(errorMessage)
                         .font(Theme.font(size: 13))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.textPrimary)
                 }
 
                 PrimaryButton(

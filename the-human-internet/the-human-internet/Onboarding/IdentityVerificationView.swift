@@ -29,7 +29,7 @@ struct IdentityVerificationView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Verify your identity (optional)")
                         .font(Theme.font(size: 24, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("Identity verification on our site is 100% optional. However, if you would ever like to use our site to make claims about the ownership of your content, you will need to verify your identity.")
                         .font(Theme.font(size: 14))
                         .foregroundStyle(Theme.textSecondary)
@@ -45,7 +45,7 @@ struct IdentityVerificationView: View {
                     if appState.isStripeIdentityTestModeEnabled {
                         Text("Stripe test environment — this verification is a sandbox one and proves nothing about a real identity.")
                             .font(Theme.font(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.warning)
+                            .foregroundStyle(Theme.textPrimary)
                     }
                 }
 

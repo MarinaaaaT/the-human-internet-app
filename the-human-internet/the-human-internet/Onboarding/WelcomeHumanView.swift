@@ -17,7 +17,7 @@ struct WelcomeHumanView: View {
                     .font(.system(size: 64))
                 Text("Welcome human.")
                     .font(Theme.font(size: 26, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("You're verified. From here on, every photo you take can carry proof that a real person took it — not a bot, not a model. Let's take your first one.")
                     .font(Theme.font(size: 15))
                     .foregroundStyle(Theme.textSecondary)

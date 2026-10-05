@@ -14,7 +14,7 @@ struct PhotoVerificationInfoSheet: View {
 
                 Text("About Human Photo Verification")
                     .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 Text("We guarantee this photo was taken by a human, using the camera on their phone.")
                     .font(Theme.font(size: 14))

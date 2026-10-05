@@ -21,7 +21,7 @@ struct ShareInstructionsSheetView: View {
 
                 Text("Before you share")
                     .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 Text("We've copied the verification link to your clipboard. Paste it into your caption alongside the photo, so anyone who sees it can verify it's real.")
                     .font(Theme.font(size: 14))

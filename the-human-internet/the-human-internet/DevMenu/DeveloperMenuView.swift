@@ -33,7 +33,7 @@ struct DeveloperMenuView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 }
 

@@ -27,15 +27,15 @@ struct SettingsView: View {
                     settingsRow(title: "Username", value: appState.user.username.isEmpty ? "—" : appState.user.username, icon: "pencil") {
                         showEditUsername = true
                     }
-                    Divider().overlay(Color.white.opacity(0.08))
+                    Divider().overlay(Theme.divider)
                     settingsRow(title: "Privacy", value: appState.user.privacy.rawValue, icon: "pencil") {
                         showPrivacySheet = true
                     }
-                    Divider().overlay(Color.white.opacity(0.08))
-                    settingsRow(title: "Verification Status", value: statusLabel, valueColor: statusColor, icon: "info.circle") {
+                    Divider().overlay(Theme.divider)
+                    settingsRow(title: "Verification Status", value: statusLabel, icon: "info.circle") {
                         showVerificationInfo = true
                     }
-                    Divider().overlay(Color.white.opacity(0.08))
+                    Divider().overlay(Theme.divider)
 
                     // The reward for being verified: deciding what else goes
                     // on your public verification page beyond the photo —
@@ -56,12 +56,11 @@ struct SettingsView: View {
                         settingsRow(
                             title: "Verification Page",
                             value: "Customize",
-                            valueColor: Theme.accentBlue,
                             icon: "chevron.right"
                         ) {
                             showVerificationPage = true
                         }
-                        Divider().overlay(Color.white.opacity(0.08))
+                        Divider().overlay(Theme.divider)
                     }
 
                     // Verification is optional and skippable during onboarding,
@@ -83,12 +82,11 @@ struct SettingsView: View {
                         settingsRow(
                             title: "Identity Verification",
                             value: "Verify Identity",
-                            valueColor: Theme.accentBlue,
                             icon: "chevron.right"
                         ) {
                             showIdentityVerification = true
                         }
-                        Divider().overlay(Color.white.opacity(0.08))
+                        Divider().overlay(Theme.divider)
                     }
 
                     // Leaves the app on purpose: a Discord invite needs the
@@ -97,22 +95,20 @@ struct SettingsView: View {
                     settingsRow(
                         title: "Contact Us",
                         value: "Join our Discord",
-                        valueColor: Theme.accentBlue,
                         icon: "arrow.up.right"
                     ) {
                         UIApplication.shared.open(ExternalLink.discord)
                     }
-                    Divider().overlay(Color.white.opacity(0.08))
+                    Divider().overlay(Theme.divider)
 
                     settingsRow(
                         title: "Feedback",
                         value: "Share an idea or issue",
-                        valueColor: Theme.accentBlue,
                         icon: "chevron.right"
                     ) {
                         showFeedback = true
                     }
-                    Divider().overlay(Color.white.opacity(0.08))
+                    Divider().overlay(Theme.divider)
 
                     Button {
                         showSignOutConfirmation = true
@@ -120,13 +116,13 @@ struct SettingsView: View {
                         HStack {
                             Text("Log Out")
                                 .font(Theme.font(size: 16, weight: .medium))
-                                .foregroundStyle(.red)
                             Spacer()
                             Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .foregroundStyle(.red)
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
+                        .ctaStyle()
+                        .padding(.horizontal, 20)
                     }
 
                     Spacer()
@@ -141,12 +137,12 @@ struct SettingsView: View {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")
                         .font(Theme.font(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
             }
             .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
         }
         // Settings is where verification status is actually read, so it
         // refreshes on open — and then keeps watching, but only while the
@@ -251,19 +247,7 @@ struct SettingsView: View {
         }
     }
 
-    private var statusColor: Color {
-        switch appState.user.verificationStatus {
-        // Neutral rather than amber: being unverified is a supported resting
-        // state — neither something gone wrong nor something in flight that
-        // the user should be watching.
-        case .unverified: return Theme.textSecondary
-        case .inProgress: return Theme.warning
-        case .verified: return Theme.success
-        case .failed: return .red
-        }
-    }
-
-    private func settingsRow(title: String, value: String, valueColor: Color = .white, icon: String, action: @escaping () -> Void) -> some View {
+    private func settingsRow(title: String, value: String, valueColor: Color = Theme.textPrimary, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {

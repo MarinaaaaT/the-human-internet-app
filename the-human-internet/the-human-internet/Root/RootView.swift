@@ -18,7 +18,7 @@ struct RootView: View {
                 ZStack {
                     Theme.background.ignoresSafeArea()
                     ProgressView()
-                        .tint(.white)
+                        .tint(Theme.textPrimary)
                 }
             } else if appState.isOnboarded {
                 MainTabView()
@@ -30,7 +30,9 @@ struct RootView: View {
         // alerts' callers, text fields. Explicit `.font(Theme.font(...))`
         // calls override it.
         .font(Theme.font(size: 17))
-        .preferredColorScheme(.dark)
+        // System buttons (toolbar items, alert actions) are CTAs too.
+        .tint(Theme.ctaForeground)
+        .preferredColorScheme(.light)
         .onOpenURL { url in
             handle(url: url)
         }

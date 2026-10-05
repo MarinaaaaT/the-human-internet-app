@@ -20,7 +20,7 @@ struct PrivacyEditSheet: View {
 
                 Text("Privacy")
                     .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(PrivacyLevel.allCases) { level in
@@ -33,7 +33,7 @@ struct PrivacyEditSheet: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(Theme.font(size: 13))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.textPrimary)
                 }
 
                 PrimaryButton(title: isSaving ? "Saving…" : "Save", isEnabled: !isSaving) {

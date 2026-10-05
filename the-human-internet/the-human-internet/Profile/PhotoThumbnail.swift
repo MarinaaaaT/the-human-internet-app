@@ -65,7 +65,7 @@ struct PhotoThumbnail: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 20))
                 .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, Theme.accentBlue)
+                .foregroundStyle(.white, Theme.selection)
                 .padding(8)
         }
     }
@@ -88,9 +88,7 @@ struct PhotoThumbnail: View {
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(6)
-                    .background(Color.red, in: Circle())
+                    .ctaIcon(diameter: 24)
             }
             .padding(6)
         }

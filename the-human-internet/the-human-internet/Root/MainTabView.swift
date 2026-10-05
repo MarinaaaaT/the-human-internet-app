@@ -24,10 +24,10 @@ struct MainTabView: View {
                 Text("Profile")
             }
         }
-        .tint(Theme.accentBlue)
+        .tint(Theme.selection)
         .toolbarBackground(Theme.background, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .tabBar)
+        .toolbarColorScheme(.light, for: .tabBar)
     }
 }
 
