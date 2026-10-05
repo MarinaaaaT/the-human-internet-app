@@ -34,7 +34,7 @@ struct SecondaryButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
-        .ctaStyle(secondary: true)
+        .ctaStyle(.secondary)
     }
 }
 

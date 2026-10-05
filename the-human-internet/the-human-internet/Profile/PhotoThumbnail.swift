@@ -88,7 +88,7 @@ struct PhotoThumbnail: View {
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .bold))
-                    .ctaIcon(diameter: 24)
+                    .ctaIcon(.tertiary, diameter: 24)
             }
             .padding(6)
         }
