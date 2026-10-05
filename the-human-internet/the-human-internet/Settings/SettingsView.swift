@@ -119,10 +119,9 @@ struct SettingsView: View {
                             Spacer()
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                         }
+                        .foregroundStyle(Theme.ctaForeground)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
-                        .ctaStyle()
-                        .padding(.horizontal, 20)
                     }
 
                     Spacer()

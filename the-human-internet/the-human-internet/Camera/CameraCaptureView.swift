@@ -76,7 +76,7 @@ struct CameraCaptureView: View {
                     } label: {
                         Image(systemName: "arrow.triangle.2.circlepath.camera")
                             .font(.system(size: 18, weight: .semibold))
-                            .ctaIcon(diameter: 44)
+                            .ctaIcon(.tertiary, diameter: 44)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -110,9 +110,9 @@ struct CameraCaptureView: View {
                         capture()
                     } label: {
                         Circle()
-                            .fill(Theme.ctaBackground)
+                            .fill(Theme.ctaTertiaryBackground)
                             .frame(width: 72, height: 72)
-                            .overlay(Circle().stroke(Theme.ctaForeground, lineWidth: 4).padding(4))
+                            .overlay(Circle().stroke(Theme.ctaTertiaryForeground, lineWidth: 4).padding(4))
                     }
                 }
                 .padding(.horizontal, 32)
