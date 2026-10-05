@@ -15,7 +15,7 @@ struct CongratsSheetView: View {
                 Text("🎉")
                     .font(.system(size: 44))
                 Text("Congrats on your\nfirst verified photo!")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(Theme.font(size: 22, weight: .bold))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
 
@@ -38,7 +38,7 @@ struct CongratsSheetView: View {
         HStack(alignment: .top, spacing: 8) {
             Text("•").foregroundStyle(Theme.textSecondary)
             Text(text)
-                .font(.system(size: 14))
+                .font(Theme.font(size: 14))
                 .foregroundStyle(Theme.textSecondary)
         }
     }

@@ -25,7 +25,7 @@ struct PreviewAsSheetView: View {
                 SheetGrabber()
 
                 Text("Preview as…")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(Theme.font(size: 20, weight: .bold))
                     .foregroundStyle(.white)
 
                 VStack(alignment: .leading, spacing: 16) {

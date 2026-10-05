@@ -66,7 +66,7 @@ struct ShareSheetView: View {
                     .padding(.top, 8)
 
                 Text("Share your human photo")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(Theme.font(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
 
                 HStack(spacing: 20) {
@@ -277,7 +277,7 @@ struct ShareSheetView: View {
                 .background(Theme.surface)
                 .clipShape(Circle())
             Text(option.label)
-                .font(.system(size: 10))
+                .font(Theme.font(size: 10))
                 .foregroundStyle(Theme.textSecondary)
         }
     }

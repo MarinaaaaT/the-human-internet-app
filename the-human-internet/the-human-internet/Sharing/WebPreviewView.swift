@@ -35,7 +35,7 @@ struct WebPreviewView: View {
                     }
                     Spacer()
                     Text(url.host ?? "")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     // Balances the close button so the host label stays centered.

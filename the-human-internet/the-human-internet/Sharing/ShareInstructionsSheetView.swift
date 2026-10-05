@@ -20,11 +20,11 @@ struct ShareInstructionsSheetView: View {
                 SheetGrabber()
 
                 Text("Before you share")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(Theme.font(size: 20, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text("We've copied the verification link to your clipboard. Paste it into your caption alongside the photo, so anyone who sees it can verify it's real.")
-                    .font(.system(size: 14))
+                    .font(Theme.font(size: 14))
                     .foregroundStyle(Theme.textSecondary)
 
                 Spacer()

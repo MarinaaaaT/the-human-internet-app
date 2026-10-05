@@ -32,3 +32,10 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/test_output/
 *.dSYM.zip
+
+# PP Neue Montreal is licence-restricted and these repos are public — the
+# files live only in the private `licensed-fonts` Supabase bucket.
+*NeueMontreal*.otf
+*NeueMontreal*.ttf
+*NeueMontreal*.woff
+*NeueMontreal*.woff2

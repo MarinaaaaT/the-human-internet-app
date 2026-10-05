@@ -61,6 +61,18 @@ enum FeatureFlagKey {
     /// `sign-photo` are deployed; until then `RemotePhotoSigner` refuses the
     /// response (it wouldn't confirm the pipeline) and uploads just retry.
     static let serverSideWatermark = "server_side_watermark"
+    /// Whether text is set in PP Neue Montreal instead of Inter Display —
+    /// the developer menu's "Neue Font: Pay To Enable".
+    ///
+    /// **This flag is the font licence switch.** The Neue Montreal files we
+    /// hold are the free-for-personal-use release, so they aren't bundled
+    /// (the repo is public); `Typography` downloads them from the private
+    /// `licensed-fonts` bucket, and that bucket's storage policy resolves
+    /// this same flag. `admin` = an admin evaluating it on their own device.
+    /// `all` hands the files to every user *and* to the website (which reads
+    /// it via `public_feature_flag_enabled`) — set it only once a commercial
+    /// licence is bought and the paid files have replaced the free ones.
+    static let neueFont = "neue_font"
 
     /// What a flag falls back to when the server has nothing this build can
     /// use: the row is missing, the flags never loaded, or the audience is a
@@ -99,6 +111,9 @@ enum FeatureFlagKey {
         // The path every build before this took, and the one that works
         // against a backend that hasn't been deployed yet.
         case serverSideWatermark: return .off
+        // Inter Display is bundled and always works; the files this flag
+        // fetches are licence-restricted.
+        case neueFont: return .off
         default: return .off
         }
     }

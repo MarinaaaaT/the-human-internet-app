@@ -13,15 +13,15 @@ struct PhotoVerificationInfoSheet: View {
                 SheetGrabber()
 
                 Text("About Human Photo Verification")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(Theme.font(size: 20, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text("We guarantee this photo was taken by a human, using the camera on their phone.")
-                    .font(.system(size: 14))
+                    .font(Theme.font(size: 14))
                     .foregroundStyle(Theme.textSecondary)
 
                 Text("We do not guarantee that the contents of the photo aren't AI generated — someone could still point their camera at a screen. Closing that gap is on our roadmap.")
-                    .font(.system(size: 14))
+                    .font(Theme.font(size: 14))
                     .foregroundStyle(Theme.textSecondary)
 
                 Spacer()

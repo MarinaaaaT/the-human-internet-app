@@ -19,7 +19,7 @@ struct PrivacyEditSheet: View {
                 SheetGrabber()
 
                 Text("Privacy")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(Theme.font(size: 20, weight: .bold))
                     .foregroundStyle(.white)
 
                 VStack(alignment: .leading, spacing: 16) {
@@ -32,7 +32,7 @@ struct PrivacyEditSheet: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.system(size: 13))
+                        .font(Theme.font(size: 13))
                         .foregroundStyle(.red)
                 }
 

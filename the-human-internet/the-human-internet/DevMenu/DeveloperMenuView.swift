@@ -49,7 +49,7 @@ struct DevMenuDescription: View {
     var body: some View {
         Section {
             Text(text)
-                .font(.system(size: 14))
+                .font(Theme.font(size: 14))
                 .foregroundStyle(Theme.textSecondary)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))

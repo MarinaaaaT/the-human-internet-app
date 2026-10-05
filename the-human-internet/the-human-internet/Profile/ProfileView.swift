@@ -35,7 +35,7 @@ struct ProfileView: View {
                 }
 
                 Text("Privacy: \(appState.user.privacy.rawValue)")
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .foregroundStyle(Theme.textSecondary)
 
                 if appState.photos.isEmpty {
@@ -46,7 +46,7 @@ struct ProfileView: View {
                             .foregroundStyle(Theme.textSecondary)
                         Text("No photos yet. Take your first one!")
                             .foregroundStyle(Theme.textSecondary)
-                            .font(.system(size: 14))
+                            .font(Theme.font(size: 14))
                     }
                     .frame(maxWidth: .infinity)
                     Spacer()
@@ -130,7 +130,7 @@ struct ProfileView: View {
         if isSelecting {
             HStack {
                 Text("\(selectedPhotoIDs.count) photo\(selectedPhotoIDs.count == 1 ? "" : "s") selected")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(Theme.font(size: 20, weight: .bold))
                     .foregroundStyle(.white)
                 Spacer()
                 HStack(spacing: 16) {
@@ -153,7 +153,7 @@ struct ProfileView: View {
             HStack {
                 HStack(spacing: 6) {
                     Text(appState.user.username.isEmpty ? "You" : appState.user.username)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(Theme.font(size: 20, weight: .bold))
                         .foregroundStyle(.white)
                     if appState.user.verificationStatus == .verified {
                         Image(systemName: "checkmark.seal.fill")

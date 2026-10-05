@@ -20,10 +20,10 @@ struct ProfileSetupView: View {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Set up profile")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(Theme.font(size: 24, weight: .bold))
                         .foregroundStyle(.white)
                     Text("The information below may be visible to the public. It can be changed later.")
-                        .font(.system(size: 14))
+                        .font(Theme.font(size: 14))
                         .foregroundStyle(Theme.textSecondary)
                 }
 
