@@ -82,7 +82,7 @@ struct PhotoVerificationView: View {
                         .font(.system(size: 24))
                         .foregroundStyle(Theme.success)
                     Text("This photo was taken by a real human!")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(Theme.font(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
                 }
                 .padding(16)
@@ -100,7 +100,7 @@ struct PhotoVerificationView: View {
                             .foregroundStyle(.white)
                             .underline()
                     )
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                 }
             }
             .padding(.horizontal, 20)
@@ -129,7 +129,7 @@ struct PhotoVerificationView: View {
     private func ownerDetails(_ owner: PhotoOwnerProfile, capturedAt: Date) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(caption(for: owner, capturedAt: capturedAt))
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .foregroundStyle(Theme.textSecondary)
 
             if let identity = owner.verifiedIdentity {
@@ -140,8 +140,10 @@ struct PhotoVerificationView: View {
                     // The full sentence when there's a date to cite,
                     // otherwise the name alone — see `VerifiedIdentity`.
                     Text(identity.statement ?? identity.displayName)
-                        .font(.system(size: identity.statement == nil ? 16 : 13))
-                        .fontWeight(identity.statement == nil ? .semibold : .regular)
+                        .font(Theme.font(
+                            size: identity.statement == nil ? 16 : 13,
+                            weight: identity.statement == nil ? .semibold : .regular
+                        ))
                         .foregroundStyle(identity.statement == nil ? .white : Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
@@ -181,7 +183,7 @@ struct PhotoVerificationView: View {
             Text(link.platform.displayHandle(link.handle))
                 .foregroundStyle(.white)
         }
-        .font(.system(size: 13))
+        .font(Theme.font(size: 13))
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Theme.surface)
@@ -201,7 +203,7 @@ struct PhotoVerificationView: View {
                 .foregroundStyle(Theme.textSecondary)
             Text("This photo couldn't be found.")
                 .foregroundStyle(Theme.textSecondary)
-                .font(.system(size: 14))
+                .font(Theme.font(size: 14))
         }
         .frame(maxWidth: .infinity)
     }

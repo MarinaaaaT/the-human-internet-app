@@ -119,7 +119,7 @@ struct SettingsView: View {
                     } label: {
                         HStack {
                             Text("Log Out")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(Theme.font(size: 16, weight: .medium))
                                 .foregroundStyle(.red)
                             Spacer()
                             Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -135,6 +135,15 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            // The bar draws `navigationTitle` in the system font whatever the
+            // environment says; this puts the visible title in ours.
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(Theme.font(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
             .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -259,10 +268,10 @@ struct SettingsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 13))
+                        .font(Theme.font(size: 13))
                         .foregroundStyle(Theme.textSecondary)
                     Text(value)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(Theme.font(size: 16, weight: .medium))
                         .foregroundStyle(valueColor)
                 }
                 Spacer()

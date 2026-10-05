@@ -44,6 +44,13 @@
 		<key>UISceneConfigurations</key>
 		<dict/>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>InterDisplay-Regular.ttf</string>
+		<string>InterDisplay-Medium.ttf</string>
+		<string>InterDisplay-SemiBold.ttf</string>
+		<string>InterDisplay-Bold.ttf</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>

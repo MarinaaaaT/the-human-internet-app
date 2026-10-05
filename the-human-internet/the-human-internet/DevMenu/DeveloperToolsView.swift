@@ -76,7 +76,7 @@ struct DeveloperToolsView: View {
 
     private func footer(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12))
+            .font(Theme.font(size: 12))
             .foregroundStyle(Theme.textSecondary)
     }
 }

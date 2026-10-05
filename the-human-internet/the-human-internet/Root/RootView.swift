@@ -26,6 +26,10 @@ struct RootView: View {
                 OnboardingFlowView()
             }
         }
+        // The default for any text that doesn't set its own — List rows,
+        // alerts' callers, text fields. Explicit `.font(Theme.font(...))`
+        // calls override it.
+        .font(Theme.font(size: 17))
         .preferredColorScheme(.dark)
         .onOpenURL { url in
             handle(url: url)

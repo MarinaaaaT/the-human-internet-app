@@ -129,10 +129,10 @@ struct CameraCaptureView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(Theme.textSecondary)
             Text("No camera available")
-                .font(.system(size: 17, weight: .semibold))
+                .font(Theme.font(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
             Text("This device doesn't have a usable camera — the Simulator, for instance, has none. Try a physical iPhone.")
-                .font(.system(size: 14))
+                .font(Theme.font(size: 14))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -145,10 +145,10 @@ struct CameraCaptureView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(Theme.textSecondary)
             Text("Camera access is off")
-                .font(.system(size: 17, weight: .semibold))
+                .font(Theme.font(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
             Text("Turn on camera access in Settings to take a photo.")
-                .font(.system(size: 14))
+                .font(Theme.font(size: 14))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
             Button("Open Settings") {
@@ -156,7 +156,7 @@ struct CameraCaptureView: View {
                     UIApplication.shared.open(url)
                 }
             }
-            .font(.system(size: 15, weight: .semibold))
+            .font(Theme.font(size: 15, weight: .semibold))
             .foregroundStyle(Theme.accentBlue)
             .padding(.top, 4)
         }

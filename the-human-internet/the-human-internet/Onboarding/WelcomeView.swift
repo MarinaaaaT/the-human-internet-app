@@ -19,7 +19,7 @@ struct WelcomeView: View {
                 BrandMark(size: 56)
                     .padding(.bottom, 24)
                 Text("Welcome to\nthe human internet")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(Theme.font(size: 28, weight: .bold))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                 Spacer()

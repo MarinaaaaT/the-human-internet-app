@@ -61,7 +61,7 @@ struct VerificationPageSheet: View {
 
                     if let errorMessage {
                         Text(errorMessage)
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .foregroundStyle(.red)
                     }
 
@@ -85,10 +85,10 @@ struct VerificationPageSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Verification Page")
-                .font(.system(size: 20, weight: .bold))
+                .font(Theme.font(size: 20, weight: .bold))
                 .foregroundStyle(.white)
             Text("Choose what people see next to your photo at \(VerifiedPhoto.webHost).")
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .foregroundStyle(Theme.textSecondary)
         }
     }
@@ -104,10 +104,10 @@ struct VerificationPageSheet: View {
             Toggle(isOn: $showIdentity) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Show my verified name")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(Theme.font(size: 15, weight: .medium))
                         .foregroundStyle(.white)
                     Text(identitySubtitle)
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                 }
             }
@@ -121,8 +121,10 @@ struct VerificationPageSheet: View {
                     // Exactly what a viewer sees on the verification page —
                     // same `VerifiedIdentity`, same sentence.
                     Text(verifiedIdentity.statement ?? verifiedIdentity.displayName)
-                        .font(.system(size: verifiedIdentity.statement == nil ? 16 : 13))
-                        .fontWeight(verifiedIdentity.statement == nil ? .medium : .regular)
+                        .font(Theme.font(
+                            size: verifiedIdentity.statement == nil ? 16 : 13,
+                            weight: verifiedIdentity.statement == nil ? .medium : .regular
+                        ))
                         .foregroundStyle(verifiedIdentity.statement == nil ? .white : Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
@@ -132,7 +134,7 @@ struct VerificationPageSheet: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             } else if !isLoadingVerifiedIdentity {
                 Text("We don't have a verified name on file for your account. It's captured during identity verification — if yours predates that, it'll appear after your next verification.")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -154,7 +156,7 @@ struct VerificationPageSheet: View {
             FieldLabel(text: "SOCIAL HANDLES")
 
             Text("Just the handle — we build the link. Up to \(SocialLink.maxCount).")
-                .font(.system(size: 12))
+                .font(Theme.font(size: 12))
                 .foregroundStyle(Theme.textSecondary)
 
             ForEach($links) { $link in
@@ -168,7 +170,7 @@ struct VerificationPageSheet: View {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle")
                         Text("Add handle")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(Theme.font(size: 15, weight: .medium))
                     }
                     .foregroundStyle(Theme.accentBlue)
                 }
@@ -187,7 +189,7 @@ struct VerificationPageSheet: View {
             } label: {
                 HStack(spacing: 4) {
                     Text(link.wrappedValue.platform.displayName)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(Theme.font(size: 14, weight: .medium))
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .semibold))
                 }
@@ -217,7 +219,7 @@ struct VerificationPageSheet: View {
 
     private var privacyNote: some View {
         Text("Your privacy is set to Humans Only, so your verification page hides your photo and username from signed-out visitors — and it hides this too. Switch to Public for any of it to show.")
-            .font(.system(size: 12))
+            .font(Theme.font(size: 12))
             .foregroundStyle(Theme.warning)
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)

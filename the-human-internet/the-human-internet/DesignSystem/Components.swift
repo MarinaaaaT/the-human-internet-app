@@ -13,7 +13,7 @@ struct PrimaryButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(Theme.font(size: 16, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
@@ -32,7 +32,7 @@ struct SecondaryButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(Theme.font(size: 16, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
@@ -52,7 +52,7 @@ struct LightButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(Theme.font(size: 16, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
@@ -89,7 +89,7 @@ struct FieldLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 13, weight: .medium))
+            .font(Theme.font(size: 13, weight: .medium))
             .foregroundStyle(Theme.textSecondary)
     }
 }
@@ -116,11 +116,11 @@ struct RadioRow: View {
                     .foregroundStyle(isSelected ? Theme.accentBlue : Theme.textSecondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(Theme.font(size: 15, weight: .medium))
                         .foregroundStyle(.white)
                     if let subtitle {
                         Text(subtitle)
-                            .font(.system(size: 12))
+                            .font(Theme.font(size: 12))
                             .foregroundStyle(Theme.textSecondary)
                     }
                 }

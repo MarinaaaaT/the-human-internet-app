@@ -49,7 +49,7 @@ struct PendingPhotosBanner: View {
 
     private func row(text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 13, weight: .medium))
+            .font(Theme.font(size: 13, weight: .medium))
             .foregroundStyle(color)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)

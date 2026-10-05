@@ -18,12 +18,12 @@ struct VerificationStatusSheet: View {
                 SheetGrabber()
 
                 Text("Verification Status")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(Theme.font(size: 20, weight: .bold))
                     .foregroundStyle(.white)
 
                 ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
                     Text(paragraph)
-                        .font(.system(size: 14))
+                        .font(Theme.font(size: 14))
                         .foregroundStyle(Theme.textSecondary)
                 }
 

@@ -38,7 +38,7 @@ struct StripeIdentityWebView: View {
                     }
                     Spacer()
                     Text("Verify with ID")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Color.clear.frame(width: 18, height: 18)

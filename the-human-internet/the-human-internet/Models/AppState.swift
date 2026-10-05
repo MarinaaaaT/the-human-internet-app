@@ -30,7 +30,9 @@ final class AppState {
     /// Never sourced from `user`/`HumanUser` — see
     /// `UserProfileRepository.fetchIsAdmin` for why admin status is kept out
     /// of the model that round-trips through `upsert`.
-    var isAdmin = false
+    var isAdmin = false {
+        didSet { syncTypography() }
+    }
 
     /// Remote feature flags, keyed by `FeatureFlagKey`. Populated on every
     /// hydrate so a flag changed by an admin takes effect for other users on
@@ -40,7 +42,9 @@ final class AppState {
     /// accounts only — see `FeatureFlagAudience`. A key absent here means the
     /// server had nothing this build could use for it, and
     /// `FeatureFlagKey.fallbackAudience(for:)` decides what that means.
-    var featureFlags: [String: FeatureFlagAudience] = [:]
+    var featureFlags: [String: FeatureFlagAudience] = [:] {
+        didSet { syncTypography() }
+    }
 
     /// The audience a flag currently carries — the *unresolved* server value,
     /// which is what the developer menu's picker shows and edits. Use the
@@ -135,6 +139,20 @@ final class AppState {
     /// being watermarked on device. See `FeatureFlagKey.serverSideWatermark`.
     var isServerSideWatermarkEnabled: Bool {
         isEnabled(FeatureFlagKey.serverSideWatermark)
+    }
+
+    /// Whether text is set in PP Neue Montreal rather than Inter Display.
+    /// See `FeatureFlagKey.neueFont` — the storage policy on the font files
+    /// resolves the same flag, so this can't fetch them when it says no.
+    var isNeueFontEnabled: Bool {
+        isEnabled(FeatureFlagKey.neueFont)
+    }
+
+    /// Hung off `didSet` on both inputs, for the same reason the New Relic
+    /// call hangs off `user`: every path that changes them (hydrate, the dev
+    /// menu, sign-out) restyles the app without having to remember to.
+    private func syncTypography() {
+        Typography.shared.setNeueMontrealEnabled(isNeueFontEnabled)
     }
 
     /// IDs of photos in `photos` that are still being signed and/or
