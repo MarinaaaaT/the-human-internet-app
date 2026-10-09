@@ -141,6 +141,31 @@ final class AppState {
         isEnabled(FeatureFlagKey.serverSideWatermark)
     }
 
+    /// The user's **Photo Fingerprint** setting (Settings → Account
+    /// Settings): whether new captures get the brand mark burned into their
+    /// pixels. On by default, matching the column default. Off ⇒
+    /// `PhotoUploadQueue` signs the raw capture as-is — still a full C2PA
+    /// `digitalCapture` claim, just with no visible pointer to it.
+    ///
+    /// Per account (`users.watermark_enabled`), not per device. Read at
+    /// processing time like the other switches, so a pending upload follows
+    /// whatever this says when it's actually processed.
+    var isWatermarkEnabled = true
+
+    /// Writes `isWatermarkEnabled` back. Optimistic, revert-on-failure —
+    /// same pattern as `setAudience(_:for:)`.
+    func setWatermarkEnabled(_ enabled: Bool) async throws {
+        guard let userID = user.id else { return }
+        let previous = isWatermarkEnabled
+        isWatermarkEnabled = enabled
+        do {
+            try await UserProfileRepository.setWatermarkEnabled(enabled, userID: userID)
+        } catch {
+            isWatermarkEnabled = previous
+            throw error
+        }
+    }
+
     /// Whether text is set in PP Neue Montreal rather than Inter Display.
     /// See `FeatureFlagKey.neueFont` — the storage policy on the font files
     /// resolves the same flag, so this can't fetch them when it says no.
@@ -223,6 +248,23 @@ final class AppState {
         deepLinkedPhoto = nil
         isAdmin = false
         featureFlags = [:]
+        isWatermarkEnabled = true
+    }
+
+    /// Permanently deletes this account server-side, then clears every local
+    /// trace of it, exactly as `signOut()` does — pending uploads included,
+    /// since there's no longer an account for them to upload to.
+    ///
+    /// The local sign-out is `.local` and best-effort: the identity is
+    /// already gone server-side, so a global sign-out has nothing to revoke
+    /// and may well fail — that mustn't strand the user on a dead session.
+    func deleteAccount() async throws {
+        try await UserProfileRepository.deleteAccount()
+        if let userID = user.id {
+            await PhotoUploadQueue.pruneOnSignOut(userID: userID)
+        }
+        try? await supabase.auth.signOut(scope: .local)
+        handleSessionInvalidated()
     }
 
     /// Pulls the current `verification_status` down onto `user`, leaving the
@@ -262,6 +304,15 @@ final class AppState {
         isOnboarded = profile.onboardingStep == .completed
         isAdmin = try await UserProfileRepository.fetchIsAdmin(userID: userID)
         featureFlags = try await FeatureFlagRepository.fetchAll()
+        // Fail-soft on purpose: a failed read (or a project where the column
+        // doesn't exist yet) must not cost the user their sign-in. Falls
+        // back to the column's own default.
+        do {
+            isWatermarkEnabled = try await UserProfileRepository.fetchWatermarkEnabled(userID: userID)
+        } catch {
+            isWatermarkEnabled = true
+            Log.settings.error("Reading Photo Fingerprint setting failed: \(error, privacy: .public)")
+        }
         photos = try await PhotoRepository.fetchAll(userID: userID)
         // Picks back up anything left mid-upload by a force-quit or crash —
         // safe to call on every hydrate, since PhotoUploadQueue no-ops for
