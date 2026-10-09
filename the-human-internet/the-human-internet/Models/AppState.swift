@@ -251,15 +251,17 @@ final class AppState {
         isWatermarkEnabled = true
     }
 
-    /// Permanently deletes this account server-side, then clears every local
+    /// Permanently deletes this account server-side — after revoking its
+    /// Sign in with Apple link, using `appleAuthorizationCode` from the user
+    /// re-confirming with Apple — then clears every local
     /// trace of it, exactly as `signOut()` does — pending uploads included,
     /// since there's no longer an account for them to upload to.
     ///
     /// The local sign-out is `.local` and best-effort: the identity is
     /// already gone server-side, so a global sign-out has nothing to revoke
     /// and may well fail — that mustn't strand the user on a dead session.
-    func deleteAccount() async throws {
-        try await UserProfileRepository.deleteAccount()
+    func deleteAccount(appleAuthorizationCode: String) async throws {
+        try await UserProfileRepository.deleteAccount(appleAuthorizationCode: appleAuthorizationCode)
         if let userID = user.id {
             await PhotoUploadQueue.pruneOnSignOut(userID: userID)
         }

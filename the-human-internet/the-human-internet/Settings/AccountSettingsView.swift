@@ -3,6 +3,7 @@
 //  the-human-internet
 //
 
+import AuthenticationServices
 import SwiftUI
 
 /// Settings → Account Settings: the Photo Fingerprint switch, and deleting
@@ -113,6 +114,7 @@ private struct DeleteAccountConfirmationSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isDeleting = false
     @State private var errorMessage: String?
+    @State private var reauthorization = AppleReauthorization()
 
     var body: some View {
         ZStack {
@@ -157,16 +159,35 @@ private struct DeleteAccountConfirmationSheet: View {
         .interactiveDismissDisabled(isDeleting)
     }
 
+    /// Yes → confirm with Apple (Face ID) → delete. The Apple step is what
+    /// lets the backend unlink the app from the user's Apple ID; see
+    /// `AppleReauthorization`.
     private func deleteAccount() {
         errorMessage = nil
         isDeleting = true
         Task {
             defer { isDeleting = false }
+            let code: String
             do {
-                try await appState.deleteAccount()
+                code = try await reauthorization.requestAuthorizationCode()
+            } catch let error as ASAuthorizationError where error.code == .canceled {
+                // Backing out of the Apple prompt is a "no", not a failure.
+                return
+            } catch {
+                errorMessage = "Couldn't confirm with Apple — please try again."
+                Log.settings.error("Apple re-authorization failed: \(error, privacy: .public)")
+                return
+            }
+            do {
+                try await appState.deleteAccount(appleAuthorizationCode: code)
                 onDeleted()
             } catch {
-                errorMessage = "Couldn't delete your account — please try again."
+                errorMessage = switch UserProfileRepository.deleteAccountRejection(error) {
+                case "apple_account_mismatch":
+                    "That Apple ID isn't the one this account uses. Please confirm with the Apple ID you signed up with."
+                default:
+                    "Couldn't delete your account — please try again."
+                }
                 Log.settings.error("Account deletion failed: \(error, privacy: .public)")
             }
         }
