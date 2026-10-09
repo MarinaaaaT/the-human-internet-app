@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var showEditUsername = false
     @State private var showVerificationPage = false
     @State private var showFeedback = false
+    @State private var showAccountSettings = false
     @State private var showSignOutConfirmation = false
     @State private var signOutErrorMessage: String?
     @State private var saveErrorMessage: String?
@@ -110,6 +111,15 @@ struct SettingsView: View {
                     }
                     Divider().overlay(Theme.divider)
 
+                    settingsRow(
+                        title: "Account Settings",
+                        value: "Manage your account",
+                        icon: "chevron.right"
+                    ) {
+                        showAccountSettings = true
+                    }
+                    Divider().overlay(Theme.divider)
+
                     Button {
                         showSignOutConfirmation = true
                     } label: {
@@ -138,6 +148,9 @@ struct SettingsView: View {
                         .font(Theme.font(size: 17, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                 }
+            }
+            .navigationDestination(isPresented: $showAccountSettings) {
+                AccountSettingsView(onAccountDeleted: { dismiss() })
             }
             .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)

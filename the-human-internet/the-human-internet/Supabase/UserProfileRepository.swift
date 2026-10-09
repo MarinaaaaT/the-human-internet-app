@@ -117,6 +117,63 @@ enum UserProfileRepository {
         return VerifiedIdentity(rawName: name, verifiedAt: row.identityVerifiedAt)
     }
 
+    /// The Photo Fingerprint switch (`users.watermark_enabled`).
+    ///
+    /// Not a field on `HumanUser`, for a different reason than `is_admin`:
+    /// that struct's synthesized decoding requires every key and its upsert
+    /// sends every key, so adding a column to it couples this build to the
+    /// migration having run — a missing column would fail sign-in (decode)
+    /// and every profile save (PGRST204). A narrow read and write keep the
+    /// blast radius to this one switch.
+    static func fetchWatermarkEnabled(userID: UUID) async throws -> Bool {
+        struct Row: Decodable {
+            let watermarkEnabled: Bool
+            enum CodingKeys: String, CodingKey { case watermarkEnabled = "watermark_enabled" }
+        }
+        let rows: [Row] = try await supabase
+            .from("users")
+            .select("watermark_enabled")
+            .eq("id", value: userID)
+            .execute()
+            .value
+        return rows.first?.watermarkEnabled ?? true
+    }
+
+    static func setWatermarkEnabled(_ enabled: Bool, userID: UUID) async throws {
+        try await supabase
+            .from("users")
+            .update(["watermark_enabled": enabled])
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    /// Permanently deletes the signed-in user's account via the
+    /// `delete-account` Edge Function: it revokes Sign in with Apple, then
+    /// deletes their photos rows (killing every shared link), their files in
+    /// `photos` and `photo-originals`, and their auth identity, which
+    /// cascades to the `users` row. Needs the service role, so it can't be
+    /// done from here directly. The function identifies the user from the
+    /// session's JWT alone; `appleAuthorizationCode` comes from
+    /// `AppleReauthorization`.
+    static func deleteAccount(appleAuthorizationCode: String) async throws {
+        try await supabase.functions.invoke(
+            "delete-account",
+            options: FunctionInvokeOptions(
+                method: .post,
+                body: ["apple_authorization_code": appleAuthorizationCode]
+            )
+        )
+    }
+
+    /// `delete-account`'s `code` for a failure the user caused and can fix
+    /// by trying again — a stale code, or confirming with a different Apple
+    /// ID than the one this account belongs to — or `nil` for anything else.
+    static func deleteAccountRejection(_ error: Error) -> String? {
+        struct Body: Decodable { let code: String? }
+        guard case .httpError(400, let data) = error as? FunctionsError else { return nil }
+        return (try? JSONDecoder().decode(Body.self, from: data))?.code
+    }
+
     /// Deliberately not a field on `HumanUser`: that struct round-trips
     /// through `upsert`, and `is_admin` must never be settable by writing
     /// the client's own copy of its row back — see the

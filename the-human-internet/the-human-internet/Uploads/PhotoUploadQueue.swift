@@ -23,6 +23,11 @@ import Foundation
 /// until it exists the UI draws a matching mark over the raw capture — see
 /// `AppState.provisionalPhotoIDs`.
 ///
+/// Unless the user has turned **Photo Fingerprint** off
+/// (`AppState.isWatermarkEnabled`): then neither path runs, the raw capture
+/// is signed as-is via `RemotePhotoSigner.sign`, and no provisional mark is
+/// drawn.
+///
 /// The on-disk manifest is the durable source of truth for "what's still
 /// pending"; `AppState.photos`/`processingPhotoIDs`/`failedPhotoIDs` are just
 /// an in-memory reflection of it for the UI. `AppState.hydrate` calls
@@ -133,7 +138,9 @@ enum PhotoUploadQueue {
         var manifest = loadManifest()
         manifest.append(PendingUpload(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, isSigned: false))
         saveManifest(manifest)
-        appState.provisionalPhotoIDs.insert(photoID)
+        if appState.isWatermarkEnabled {
+            appState.provisionalPhotoIDs.insert(photoID)
+        }
 
         drive(photoID: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, appState: appState)
 
@@ -152,7 +159,7 @@ enum PhotoUploadQueue {
                 let photo = VerifiedPhoto(id: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode)
                 appState.photos.append(photo)
             }
-            if !item.isSigned {
+            if !item.isSigned, appState.isWatermarkEnabled {
                 appState.provisionalPhotoIDs.insert(item.id)
             }
             drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
@@ -265,7 +272,15 @@ enum PhotoUploadQueue {
                     // bytes that get uploaded and shared.
                     let processedData: Data
                     var hasOriginal = false
-                    if appState.isC2PASigningSkipped {
+                    if !appState.isWatermarkEnabled {
+                        // Photo Fingerprint off: no mark, on either path. The
+                        // raw capture is signed exactly as shot — the same
+                        // `digitalCapture` claim, with nothing burned in — or,
+                        // with C2PA skipped as well, uploaded untouched.
+                        processedData = appState.isC2PASigningSkipped
+                            ? imageData
+                            : try await RemotePhotoSigner.sign(imageData: imageData)
+                    } else if appState.isC2PASigningSkipped {
                         // The developer tools' "Skip C2PA verification": the
                         // watermarked JPEG goes up as-is, with no manifest.
                         // Everything downstream — the upload, the photos row,
