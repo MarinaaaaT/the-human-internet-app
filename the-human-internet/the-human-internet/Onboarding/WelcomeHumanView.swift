@@ -11,22 +11,25 @@ struct WelcomeHumanView: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(spacing: 20) {
+            VStack(spacing: DesignTokens.Space.s6) {
                 Spacer()
-                Text("👋")
-                    .font(.system(size: 64))
+                Image("DoodleHand")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: DesignTokens.Space.s24, height: DesignTokens.Space.s24)
+                    .accessibilityHidden(true)
                 Text("Welcome human.")
-                    .font(Theme.font(size: 26, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .textStyle(DesignTokens.TextStyles.h2)
+                    .foregroundStyle(Theme.foreground)
                 Text("You're verified. From here on, every photo you take can carry proof that a real person took it — not a bot, not a model. Let's take your first one.")
-                    .font(Theme.font(size: 15))
-                    .foregroundStyle(Theme.textSecondary)
+                    .textStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.mutedForeground)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, DesignTokens.Space.s8)
                 Spacer()
                 PrimaryButton(title: "Take your first photo", action: onTakePhoto)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 48)
+                    .padding(.horizontal, DesignTokens.Space.s8)
+                    .padding(.bottom, DesignTokens.Space.s12)
             }
         }
         .navigationBarBackButtonHidden(true)

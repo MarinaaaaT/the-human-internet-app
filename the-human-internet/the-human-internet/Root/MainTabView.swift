@@ -12,7 +12,7 @@ struct MainTabView: View {
                 CameraCaptureView()
             }
             .tabItem {
-                Image(systemName: "camera.fill")
+                Image(systemName: "camera")
                 Text("Camera")
             }
 
@@ -24,7 +24,7 @@ struct MainTabView: View {
                 Text("Profile")
             }
         }
-        .tint(Theme.selection)
+        .tint(Theme.foreground)
         .toolbarBackground(Theme.background, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarColorScheme(.light, for: .tabBar)

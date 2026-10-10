@@ -24,30 +24,30 @@ struct AccountSettingsView: View {
             Theme.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 Toggle(isOn: watermarkBinding) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Photo Fingerprint")
-                            .font(Theme.font(size: 16, weight: .medium))
-                            .foregroundStyle(Theme.textPrimary)
+                    VStack(alignment: .leading, spacing: DesignTokens.Space.s1) {
+                        Text("Photo fingerprint")
+                            .textStyle(DesignTokens.TextStyles.body)
+                            .foregroundStyle(Theme.foreground)
                         Text(appState.isWatermarkEnabled
                              ? "New photos are visibly watermarked."
                              : "New photos are not visibly watermarked.")
-                            .font(Theme.font(size: 13))
-                            .foregroundStyle(Theme.textSecondary)
+                            .textStyle(DesignTokens.TextStyles.label)
+                            .foregroundStyle(Theme.mutedForeground)
                     }
                 }
-                .tint(Theme.selection)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+                .tint(Theme.foreground)
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .padding(.vertical, DesignTokens.Space.s4)
 
                 if let watermarkErrorMessage {
                     Text(watermarkErrorMessage)
-                        .font(Theme.font(size: 13))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.label)
+                        .foregroundStyle(Theme.destructive)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
+                        .padding(.horizontal, DesignTokens.Space.s6)
+                        .padding(.bottom, DesignTokens.Space.s3)
                 }
-                Divider().overlay(Theme.divider)
+                Divider().overlay(Theme.border)
 
                 // A plain row, like Log Out — the confirmation sheet is where
                 // the weight of this goes, not the row.
@@ -55,26 +55,29 @@ struct AccountSettingsView: View {
                     showDeleteConfirmation = true
                 } label: {
                     HStack {
-                        Text("Delete Your Account")
-                            .font(Theme.font(size: 16, weight: .medium))
+                        Text("Delete your account")
+                            .textStyle(DesignTokens.TextStyles.body)
                         Spacer()
                         Image(systemName: "trash")
+                            .symbolStyle(DesignTokens.TextStyles.body)
                     }
-                    .foregroundStyle(Theme.ctaForeground)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    .foregroundStyle(Theme.foreground)
+                    .padding(.horizontal, DesignTokens.Space.s6)
+                    .padding(.vertical, DesignTokens.Space.s4)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
 
                 Spacer()
             }
-            .padding(.top, 8)
+            .padding(.top, DesignTokens.Space.s2)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("Account Settings")
-                    .font(Theme.font(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+                Text("Account settings")
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
             }
         }
         .sheet(isPresented: $showDeleteConfirmation) {
@@ -119,38 +122,42 @@ private struct DeleteAccountConfirmationSheet: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
                 SheetGrabber()
 
-                Text("Delete Your Account")
-                    .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                Text("Delete your account?")
+                    .textStyle(DesignTokens.TextStyles.h3)
+                    .foregroundStyle(Theme.foreground)
 
+                // One weight, so "permanently" is emphasised with colour and
+                // an underline rather than bold.
                 (Text("Although we save all photos to your camera roll, they are saved unverified. Deleting your account will ")
-                    + Text("permanently").font(Theme.font(size: 15, weight: .bold))
-                    + Text(" delete signed, C2PA verified photos unless you have downloaded them. Would you like to proceed?"))
-                    .font(Theme.font(size: 15))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(Theme.mutedForeground)
+                    + Text("permanently")
+                        .foregroundStyle(Theme.foreground)
+                        .underline()
+                    + Text(" delete signed, C2PA verified photos unless you have downloaded them. Would you like to proceed?")
+                        .foregroundStyle(Theme.mutedForeground))
+                    .textStyle(DesignTokens.TextStyles.body)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(Theme.font(size: 13))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.label)
+                        .foregroundStyle(Theme.destructive)
                 }
 
-                HStack(spacing: 12) {
-                    SecondaryButton(title: isDeleting ? "Deleting…" : "Yes") {
-                        deleteAccount()
-                    }
-                    .disabled(isDeleting)
-                    PrimaryButton(title: "No", isEnabled: !isDeleting) {
+                HStack(spacing: DesignTokens.Space.s3) {
+                    SecondaryButton(title: "No", isEnabled: !isDeleting) {
                         dismiss()
+                    }
+                    CTAButton(title: isDeleting ? "Deleting…" : "Yes", role: .destructive, isEnabled: !isDeleting) {
+                        deleteAccount()
                     }
                 }
             }
-            .padding(24)
-            .padding(.top, 16)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s4)
         }
         .presentationDetents([.medium])
         .presentationBackground(Theme.background)

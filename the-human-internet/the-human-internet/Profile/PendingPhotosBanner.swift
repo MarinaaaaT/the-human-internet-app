@@ -13,19 +13,17 @@ struct PendingPhotosBanner: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
             if !appState.processingPhotoIDs.isEmpty {
-                row(text: "\(countText(appState.processingPhotoIDs.count)) still being verified")
-                    .foregroundStyle(Theme.textPrimary)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cornerRadius))
+                row(label: "Verifying", value: "\(countText(appState.processingPhotoIDs.count)) still being verified.")
             }
             if !appState.failedPhotoIDs.isEmpty {
                 Button {
                     retryAllFailed()
                 } label: {
-                    row(text: "\(countText(appState.failedPhotoIDs.count)) failed to verify or save. Click this message to try again.")
-                        .ctaStyle()
+                    row(label: "Not saved yet", value: "\(countText(appState.failedPhotoIDs.count)) failed to verify or save. Tap to try again.")
                 }
+                .buttonStyle(.plain)
             }
         }
         .task {
@@ -44,13 +42,11 @@ struct PendingPhotosBanner: View {
         }
     }
 
-    private func row(text: String) -> some View {
-        Text(text)
-            .font(Theme.font(size: 13, weight: .medium))
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+    private func row(label: String, value: String) -> some View {
+        HumanCard(radius: DesignTokens.Radius.md, padding: DesignTokens.Space.s3) {
+            LabelValue(label: label, value: value)
+                .multilineTextAlignment(.leading)
+        }
     }
 
     private func countText(_ count: Int) -> String {

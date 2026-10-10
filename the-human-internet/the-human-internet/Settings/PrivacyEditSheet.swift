@@ -15,14 +15,14 @@ struct PrivacyEditSheet: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
                 SheetGrabber()
 
                 Text("Privacy")
-                    .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                     ForEach(PrivacyLevel.allCases) { level in
                         RadioRow(title: level.rawValue, isSelected: selection == level) {
                             selection = level
@@ -32,16 +32,16 @@ struct PrivacyEditSheet: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(Theme.font(size: 13))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.label)
+                        .foregroundStyle(Theme.destructive)
                 }
 
                 PrimaryButton(title: isSaving ? "Saving…" : "Save", isEnabled: !isSaving) {
                     save()
                 }
             }
-            .padding(24)
-            .padding(.top, 16)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s4)
         }
         .presentationDetents([.fraction(0.4)])
         .presentationBackground(Theme.background)

@@ -16,23 +16,23 @@ struct ShareInstructionsSheetView: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                 SheetGrabber()
 
                 Text("Before you share")
-                    .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
 
                 Text("We've copied the verification link to your clipboard. Paste it into your caption alongside the photo, so anyone who sees it can verify it's real.")
-                    .font(Theme.font(size: 14))
-                    .foregroundStyle(Theme.textSecondary)
+                    .textStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.mutedForeground)
 
                 Spacer()
 
                 PrimaryButton(title: "Continue") { onContinue() }
             }
-            .padding(24)
-            .padding(.top, 16)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s4)
         }
         .presentationDetents([.fraction(0.4)])
         .presentationBackground(Theme.background)

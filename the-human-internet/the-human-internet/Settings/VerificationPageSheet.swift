@@ -46,7 +46,7 @@ struct VerificationPageSheet: View {
         ZStack {
             Theme.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
                     SheetGrabber()
 
                     header
@@ -61,16 +61,16 @@ struct VerificationPageSheet: View {
 
                     if let errorMessage {
                         Text(errorMessage)
-                            .font(Theme.font(size: 13))
-                            .foregroundStyle(Theme.textPrimary)
+                            .textStyle(DesignTokens.TextStyles.label)
+                            .foregroundStyle(Theme.destructive)
                     }
 
                     PrimaryButton(title: isSaving ? "Saving…" : "Save", isEnabled: !isSaving) {
                         save()
                     }
                 }
-                .padding(24)
-                .padding(.top, 16)
+                .padding(DesignTokens.Space.s6)
+                .padding(.top, DesignTokens.Space.s4)
             }
             .scrollDismissesKeyboard(.interactively)
         }
@@ -83,63 +83,57 @@ struct VerificationPageSheet: View {
     // MARK: - Sections
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Verification Page")
-                .font(Theme.font(size: 20, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
+            Text("Verification page")
+                .textStyle(DesignTokens.TextStyles.h3)
+                .foregroundStyle(Theme.foreground)
             Text("Choose what people see next to your photo at \(VerifiedPhoto.webHost).")
-                .font(Theme.font(size: 13))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.label)
+                .foregroundStyle(Theme.mutedForeground)
         }
     }
 
     private var identitySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            FieldLabel(text: "IDENTITY")
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
+            FieldLabel(text: "Identity")
 
             // Disabled until the name is known, and permanently if there
             // isn't one: switching it on would publish nothing, which reads
             // as a bug rather than as the honest "we have no verified name
             // for you" it actually is.
             Toggle(isOn: $showIdentity) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s1) {
                     Text("Show my verified name")
-                        .font(Theme.font(size: 15, weight: .medium))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.body)
+                        .foregroundStyle(Theme.foreground)
                     Text(identitySubtitle)
-                        .font(Theme.font(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .textStyle(DesignTokens.TextStyles.caption)
+                        .foregroundStyle(Theme.mutedForeground)
                 }
             }
-            .tint(Theme.selection)
+            .tint(Theme.foreground)
             .disabled(isLoadingVerifiedIdentity || verifiedIdentity == nil)
 
             if let verifiedIdentity {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(Theme.success)
-                    // Exactly what a viewer sees on the verification page —
-                    // same `VerifiedIdentity`, same sentence.
-                    Text(verifiedIdentity.statement ?? verifiedIdentity.displayName)
-                        .font(Theme.font(
-                            size: verifiedIdentity.statement == nil ? 16 : 13,
-                            weight: verifiedIdentity.statement == nil ? .medium : .regular
-                        ))
-                        .foregroundStyle(verifiedIdentity.statement == nil ? .white : Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
+                HumanCard(radius: DesignTokens.Radius.md) {
+                    HStack(alignment: .top, spacing: DesignTokens.Space.s2) {
+                        BrandMark(size: DesignTokens.Space.s4)
+                        // Exactly what a viewer sees on the verification page —
+                        // same `VerifiedIdentity`, same sentence.
+                        Text(verifiedIdentity.statement ?? verifiedIdentity.displayName)
+                            .textStyle(verifiedIdentity.statement == nil ? DesignTokens.TextStyles.title : DesignTokens.TextStyles.label)
+                            .foregroundStyle(verifiedIdentity.statement == nil ? Theme.foreground : Theme.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
                 }
-                .padding(14)
-                .background(Theme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
             } else if !isLoadingVerifiedIdentity {
                 Text("We don't have a verified name on file for your account. It's captured during identity verification — if yours predates that, it'll appear after your next verification.")
-                    .font(Theme.font(size: 12))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(14)
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .foregroundStyle(Theme.mutedForeground)
+                    .padding(DesignTokens.Space.s4)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.md, style: .continuous))
             }
         }
     }
@@ -152,12 +146,12 @@ struct VerificationPageSheet: View {
     }
 
     private var socialSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            FieldLabel(text: "SOCIAL HANDLES")
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
+            FieldLabel(text: "Social handles")
 
             Text("Just the handle — we build the link. Up to \(SocialLink.maxCount).")
-                .font(Theme.font(size: 12))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.caption)
+                .foregroundStyle(Theme.mutedForeground)
 
             ForEach($links) { $link in
                 socialRow(link: $link)
@@ -167,21 +161,22 @@ struct VerificationPageSheet: View {
                 Button {
                     links.append(SocialLink(platform: nextUnusedPlatform))
                 } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle")
+                    HStack(spacing: DesignTokens.Space.s2) {
+                        Image(systemName: "plus")
+                            .symbolStyle(DesignTokens.TextStyles.label)
                         Text("Add handle")
-                            .font(Theme.font(size: 15, weight: .medium))
+                            .textStyle(DesignTokens.TextStyles.label)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .ctaStyle(cornerRadius: 10)
+                    .padding(.horizontal, DesignTokens.Space.s6)
+                    .ctaStyle(.secondary)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
 
     private func socialRow(link: Binding<SocialLink>) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DesignTokens.Space.s3) {
             Menu {
                 Picker("Platform", selection: link.platform) {
                     ForEach(SocialPlatform.allCases) { platform in
@@ -189,16 +184,14 @@ struct VerificationPageSheet: View {
                     }
                 }
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: DesignTokens.Space.s1) {
                     Text(link.wrappedValue.platform.displayName)
-                        .font(Theme.font(size: 14, weight: .medium))
+                        .textStyle(DesignTokens.TextStyles.label)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
+                        .symbolStyle(DesignTokens.TextStyles.caption)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 12)
-                .frame(minWidth: 108, alignment: .leading)
-                .ctaStyle(cornerRadius: 10)
+                .padding(.horizontal, DesignTokens.Space.s4)
+                .ctaStyle(.secondary)
             }
 
             HITextField(
@@ -212,19 +205,22 @@ struct VerificationPageSheet: View {
                 links.removeAll { $0.id == link.wrappedValue.id }
             } label: {
                 Image(systemName: "minus.circle")
-                    .foregroundStyle(Theme.ctaForeground)
+                    .symbolStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
+                    .frame(width: DesignTokens.Size.minTouch, height: DesignTokens.Size.minTouch)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove handle")
         }
     }
 
     private var privacyNote: some View {
         Text("Your privacy is set to Humans Only, so your verification page hides your photo and username from signed-out visitors — and it hides this too. Switch to Public for any of it to show.")
-            .font(Theme.font(size: 12))
-            .foregroundStyle(Theme.textPrimary)
-            .padding(14)
+            .textStyle(DesignTokens.TextStyles.label)
+            .foregroundStyle(Theme.foreground)
+            .padding(DesignTokens.Space.s4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.md, style: .continuous))
     }
 
     // MARK: - State

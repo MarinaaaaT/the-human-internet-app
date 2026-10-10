@@ -33,19 +33,21 @@ struct StripeIdentityWebView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .symbolStyle(DesignTokens.TextStyles.title)
                             .ctaIcon()
                     }
+                    .accessibilityLabel("Cancel verification")
                     Spacer()
                     Text("Verify with ID")
-                        .font(Theme.font(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .textStyle(DesignTokens.TextStyles.label)
+                        .foregroundStyle(Theme.mutedForeground)
                     Spacer()
-                    Color.clear.frame(width: 36, height: 36)
+                    // Balances the close button so the title stays centred.
+                    Color.clear.frame(width: DesignTokens.Size.iconButton, height: DesignTokens.Size.iconButton)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.horizontal, DesignTokens.Space.s4)
+                .padding(.top, DesignTokens.Space.s3)
+                .padding(.bottom, DesignTokens.Space.s2)
 
                 ZStack {
                     IdentityWebView(url: url, isLoading: $isLoading) {
@@ -53,7 +55,7 @@ struct StripeIdentityWebView: View {
                         onComplete()
                     }
                     if isLoading {
-                        ProgressView().tint(Theme.textPrimary)
+                        ProgressView().tint(Theme.foreground)
                     }
                 }
             }

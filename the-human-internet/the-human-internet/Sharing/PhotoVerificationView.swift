@@ -35,25 +35,26 @@ struct PhotoVerificationView: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                 HStack {
                     Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .symbolStyle(DesignTokens.TextStyles.title)
                             .ctaIcon()
                     }
+                    .accessibilityLabel("Close")
                     Spacer()
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .padding(.top, DesignTokens.Space.s3)
 
                 Group {
                     if isLoading {
                         Spacer()
                         ProgressView()
-                            .tint(Theme.textPrimary)
+                            .tint(Theme.foreground)
                             .frame(maxWidth: .infinity)
                         Spacer()
                     } else if let photo {
@@ -76,47 +77,45 @@ struct PhotoVerificationView: View {
 
     private func content(for photo: VerifiedPhoto) -> some View {
         Group {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(Theme.success)
-                    Text("This photo was taken by a real human!")
-                        .font(Theme.font(size: 17, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
+                HumanCard(radius: DesignTokens.Radius.md) {
+                    HStack(spacing: DesignTokens.Space.s3) {
+                        // "Verified" is always the spiral, never a check.
+                        BrandMark(size: DesignTokens.Size.icon)
+                        Text("This photo was taken by a real human!")
+                            .textStyle(DesignTokens.TextStyles.title)
+                            .foregroundStyle(Theme.foreground)
+                    }
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
 
                 Button {
                     showLearnMore = true
                 } label: {
                     (
                         Text("How do you know? ")
+                            .foregroundStyle(Theme.mutedForeground)
                         + Text("Click here to learn more.")
+                            .foregroundStyle(Theme.foreground)
                             .underline()
                     )
-                    .font(Theme.font(size: 13))
-                    .foregroundStyle(Theme.textPrimary)
+                    .textStyle(DesignTokens.TextStyles.label)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DesignTokens.Space.s6)
 
             // `.fit` (not `.fill`) — the source images are full-resolution camera
             // photos, and `.fill` scales up to cover, overflowing its bounds and
             // painting over the header above it.
             RemotePhotoImage(photo: photo, contentMode: .fit)
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .padding(.horizontal, 20)
-                .padding(.top, 4)
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg, style: .continuous))
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .padding(.top, DesignTokens.Space.s1)
 
             if let owner {
                 ownerDetails(owner, capturedAt: photo.capturedAt)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
+                    .padding(.horizontal, DesignTokens.Space.s6)
+                    .padding(.top, DesignTokens.Space.s3)
             }
 
             Spacer()
@@ -126,24 +125,19 @@ struct PhotoVerificationView: View {
     /// Mirrors the layout of the website's verification page: the caption
     /// line, then the verified name, then the handles as chips.
     private func ownerDetails(_ owner: PhotoOwnerProfile, capturedAt: Date) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
             Text(caption(for: owner, capturedAt: capturedAt))
-                .font(Theme.font(size: 13))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.label)
+                .foregroundStyle(Theme.mutedForeground)
 
             if let identity = owner.verifiedIdentity {
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.success)
+                HStack(alignment: .top, spacing: DesignTokens.Space.s2) {
+                    BrandMark(size: DesignTokens.Space.s4)
                     // The full sentence when there's a date to cite,
                     // otherwise the name alone — see `VerifiedIdentity`.
                     Text(identity.statement ?? identity.displayName)
-                        .font(Theme.font(
-                            size: identity.statement == nil ? 16 : 13,
-                            weight: identity.statement == nil ? .semibold : .regular
-                        ))
-                        .foregroundStyle(identity.statement == nil ? .white : Theme.textSecondary)
+                        .textStyle(identity.statement == nil ? DesignTokens.TextStyles.title : DesignTokens.TextStyles.label)
+                        .foregroundStyle(identity.statement == nil ? Theme.foreground : Theme.mutedForeground)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
@@ -153,7 +147,7 @@ struct PhotoVerificationView: View {
                 // Wraps rather than scrolls: five handles at most, and a
                 // horizontal scroller inside a full-screen cover competes
                 // with the dismiss gesture.
-                FlowLayout(spacing: 8) {
+                FlowLayout(spacing: DesignTokens.Space.s2) {
                     ForEach(owner.socialLinks.items) { link in
                         socialChip(link)
                     }
@@ -166,7 +160,7 @@ struct PhotoVerificationView: View {
     private func caption(for owner: PhotoOwnerProfile, capturedAt: Date) -> String {
         let captured = capturedAt.formatted(.dateTime.month(.wide).day().year())
         return owner.isVerified
-            ? "verified by @\(owner.username) · captured \(captured)"
+            ? "Verified by @\(owner.username) · captured \(captured)"
             : "@\(owner.username) · captured \(captured)"
     }
 
@@ -176,14 +170,14 @@ struct PhotoVerificationView: View {
     /// stranger than showing it flat.
     @ViewBuilder
     private func socialChip(_ link: SocialLink) -> some View {
-        let label = HStack(spacing: 6) {
+        let label = HStack(spacing: DesignTokens.Space.s2) {
             Text(link.platform.displayName)
+                .foregroundStyle(Theme.mutedForeground)
             Text(link.platform.displayHandle(link.handle))
         }
-        .font(Theme.font(size: 13))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .ctaStyle(cornerRadius: 9)
+        .textStyle(DesignTokens.TextStyles.label)
+        .padding(.horizontal, DesignTokens.Space.s4)
+        .ctaStyle(.secondary)
 
         if let url = link.platform.profileURL(handle: link.handle) {
             Link(destination: url) { label }
@@ -193,13 +187,13 @@ struct PhotoVerificationView: View {
     }
 
     private var notFound: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: DesignTokens.Space.s2) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 28))
-                .foregroundStyle(Theme.textSecondary)
+                .symbolStyle(DesignTokens.TextStyles.h2)
+                .foregroundStyle(Theme.mutedForeground)
             Text("This photo couldn't be found.")
-                .foregroundStyle(Theme.textSecondary)
-                .font(Theme.font(size: 14))
+                .foregroundStyle(Theme.mutedForeground)
+                .textStyle(DesignTokens.TextStyles.body)
         }
         .frame(maxWidth: .infinity)
     }

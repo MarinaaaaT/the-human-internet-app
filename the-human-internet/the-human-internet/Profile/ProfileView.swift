@@ -22,12 +22,12 @@ struct ProfileView: View {
     /// so deselecting every photo exits it automatically.
     private var isSelecting: Bool { !selectedPhotoIDs.isEmpty }
 
-    private let columns = [GridItem(.flexible(), spacing: 2), GridItem(.flexible(), spacing: 2)]
+    private let columns = [GridItem(.flexible(), spacing: DesignTokens.Space.s1), GridItem(.flexible(), spacing: DesignTokens.Space.s1)]
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                 header
 
                 if !appState.processingPhotoIDs.isEmpty || !appState.failedPhotoIDs.isEmpty {
@@ -35,24 +35,26 @@ struct ProfileView: View {
                 }
 
                 Text("Privacy: \(appState.user.privacy.rawValue)")
-                    .font(Theme.font(size: 13))
-                    .foregroundStyle(Theme.textSecondary)
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .foregroundStyle(Theme.mutedForeground)
 
                 if appState.photos.isEmpty {
                     Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 32))
-                            .foregroundStyle(Theme.textSecondary)
-                        Text("No photos yet. Take your first one!")
-                            .foregroundStyle(Theme.textSecondary)
-                            .font(Theme.font(size: 14))
+                    // Empty state: one doodle, two beats.
+                    VStack(spacing: DesignTokens.Space.s4) {
+                        Image("DoodleHand")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: DesignTokens.Size.thumbnail, height: DesignTokens.Size.thumbnail)
+                            .accessibilityHidden(true)
+                        LabelValue(label: "No photos yet.", value: "Take your first one.")
+                            .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
                     Spacer()
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: columns, spacing: 2) {
+                        LazyVGrid(columns: columns, spacing: DesignTokens.Space.s1) {
                             ForEach(appState.photos) { photo in
                                 PhotoThumbnail(
                                     photo: photo,
@@ -97,7 +99,7 @@ struct ProfileView: View {
                     .sensoryFeedback(.selection, trigger: isSelecting)
                 }
             }
-            .padding(20)
+            .padding(DesignTokens.Space.s6)
         }
         .navigationDestination(item: $navigateTo) { photo in
             PhotoDetailView(photo: photo)
@@ -130,42 +132,32 @@ struct ProfileView: View {
         if isSelecting {
             HStack {
                 Text("\(selectedPhotoIDs.count) photo\(selectedPhotoIDs.count == 1 ? "" : "s") selected")
-                    .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
                 Spacer()
-                HStack(spacing: 16) {
-                    Button {
+                HStack(spacing: DesignTokens.Space.s3) {
+                    HumanIconButton(systemName: "xmark", accessibilityLabel: "Cancel selection") {
                         selectedPhotoIDs.removeAll()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .ctaIcon()
                     }
-                    Button {
+                    HumanIconButton(systemName: "trash", accessibilityLabel: "Delete selected photos") {
                         showDeleteConfirmation = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .ctaIcon()
                     }
                 }
                 .disabled(isDeleting)
             }
         } else {
             HStack {
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Space.s2) {
                     Text(appState.user.username.isEmpty ? "You" : appState.user.username)
-                        .font(Theme.font(size: 20, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.h3)
+                        .foregroundStyle(Theme.foreground)
                     if appState.user.verificationStatus == .verified {
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(Theme.success)
+                        VerifiedBadge()
                     }
                 }
                 Spacer()
-                Button {
+                HumanIconButton(systemName: "gearshape", accessibilityLabel: "Settings") {
                     showSettings = true
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .ctaIcon()
                 }
             }
         }

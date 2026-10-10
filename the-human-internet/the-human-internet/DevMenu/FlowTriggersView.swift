@@ -37,8 +37,8 @@ struct FlowTriggersView: View {
                         ? "Sessions are created in Stripe's test environment (sandbox)."
                         : "Sessions are created in Stripe's live environment."
                 )
-                .font(Theme.font(size: 12))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.caption)
+                .foregroundStyle(Theme.mutedForeground)
             }
         }
         .scrollContentBackground(.hidden)

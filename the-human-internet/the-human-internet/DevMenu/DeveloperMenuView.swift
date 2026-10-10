@@ -22,6 +22,13 @@ struct DeveloperMenuView: View {
                 NavigationLink("Flow Triggers") {
                     FlowTriggersView()
                 }
+                // The living styleguide — every token and brand component,
+                // in the same order as the web /styleguide and Android's.
+                NavigationLink("Design System Styleguide") {
+                    DesignSystemStyleguide()
+                        .navigationTitle("Styleguide")
+                        .navigationBarTitleDisplayMode(.inline)
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
@@ -49,8 +56,8 @@ struct DevMenuDescription: View {
     var body: some View {
         Section {
             Text(text)
-                .font(Theme.font(size: 14))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.label)
+                .foregroundStyle(Theme.mutedForeground)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
         }

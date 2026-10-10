@@ -25,17 +25,17 @@ struct IdentityVerificationView: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s8) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
                     Text("Verify your identity (optional)")
-                        .font(Theme.font(size: 24, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.h2)
+                        .foregroundStyle(Theme.foreground)
                     Text("Identity verification on our site is 100% optional. However, if you would ever like to use our site to make claims about the ownership of your content, you will need to verify your identity.")
-                        .font(Theme.font(size: 14))
-                        .foregroundStyle(Theme.textSecondary)
+                        .textStyle(DesignTokens.TextStyles.body)
+                        .foregroundStyle(Theme.mutedForeground)
                     Text("If you do verify, you'll scan a government-issued ID and take a quick selfie. It will not be publicly visible and remains completely private.")
-                        .font(Theme.font(size: 14))
-                        .foregroundStyle(Theme.textSecondary)
+                        .textStyle(DesignTokens.TextStyles.body)
+                        .foregroundStyle(Theme.mutedForeground)
 
                     // Admin-only, and never reachable by a real user — see
                     // `AppState.isStripeIdentityTestModeEnabled`. Without it
@@ -44,22 +44,22 @@ struct IdentityVerificationView: View {
                     // against both of them error-prone.
                     if appState.isStripeIdentityTestModeEnabled {
                         Text("Stripe test environment — this verification is a sandbox one and proves nothing about a real identity.")
-                            .font(Theme.font(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
+                            .textStyle(DesignTokens.TextStyles.caption)
+                            .foregroundStyle(Theme.foreground)
                     }
                 }
 
                 Spacer()
 
-                VStack(spacing: 12) {
+                VStack(spacing: DesignTokens.Space.s2) {
                     PrimaryButton(
-                        title: isCreatingSession ? "Starting verification…" : "Verify Identity",
+                        title: isCreatingSession ? "Starting verification…" : "Verify identity",
                         isEnabled: !isCreatingSession
                     ) {
                         startVerification()
                     }
 
-                    SecondaryButton(title: skipTitle) {
+                    TertiaryButton(title: skipTitle) {
                         // Leaves verificationStatus at .unverified — skipping is
                         // a resting state, not a pending one.
                         onSkip()
@@ -67,8 +67,8 @@ struct IdentityVerificationView: View {
                     .disabled(isCreatingSession)
                 }
             }
-            .padding(24)
-            .padding(.top, 24)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s6)
         }
         .fullScreenCover(
             isPresented: Binding(

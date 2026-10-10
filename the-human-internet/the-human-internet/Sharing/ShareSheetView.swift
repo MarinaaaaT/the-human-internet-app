@@ -52,24 +52,24 @@ struct ShareSheetView: View {
 
     private let options: [ShareOption] = [
         ShareOption(id: "instagram", kind: .platform, symbol: "camera.aperture", label: "Instagram"),
-        ShareOption(id: "reddit", kind: .linkIntent(.reddit), symbol: "bubble.left.and.bubble.right.fill", label: "Reddit"),
+        ShareOption(id: "reddit", kind: .linkIntent(.reddit), symbol: "bubble.left.and.bubble.right", label: "Reddit"),
         ShareOption(id: "x", kind: .linkIntent(.x), symbol: "xmark", label: "X"),
-        ShareOption(id: "facebook", kind: .platform, symbol: "person.2.fill", label: "Facebook"),
-        ShareOption(id: "messages", kind: .messages, symbol: "message.fill", label: "Messages")
+        ShareOption(id: "facebook", kind: .platform, symbol: "person.2", label: "Facebook"),
+        ShareOption(id: "messages", kind: .messages, symbol: "message", label: "Messages")
     ]
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(spacing: 24) {
+            VStack(spacing: DesignTokens.Space.s6) {
                 SheetGrabber()
-                    .padding(.top, 8)
+                    .padding(.top, DesignTokens.Space.s2)
 
-                Text("Share your human photo")
-                    .font(Theme.font(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+                Text("Share your human photo.")
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
 
-                HStack(spacing: 20) {
+                HStack(spacing: DesignTokens.Space.s4) {
                     ForEach(options) { option in
                         Button {
                             switch option.kind {
@@ -83,12 +83,13 @@ struct ShareSheetView: View {
                         } label: {
                             optionLabel(for: option)
                         }
+                        .buttonStyle(.plain)
                         .disabled(isPreparingShare)
                     }
                 }
                 .overlay {
                     if isPreparingShare {
-                        ProgressView().tint(Theme.textPrimary)
+                        ProgressView().tint(Theme.foreground)
                     }
                 }
 
@@ -96,7 +97,7 @@ struct ShareSheetView: View {
 
                 Spacer()
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DesignTokens.Space.s6)
         }
         .presentationDetents([.fraction(0.4)])
         .presentationBackground(Theme.background)
@@ -142,17 +143,19 @@ struct ShareSheetView: View {
     /// and the link it copied was already displayed right underneath.
     private var copyLinkRow: some View {
         Button(action: copyLink) {
-            HStack(spacing: 8) {
-                Text(photo.verificationLink)
-                    .font(.system(size: 12, design: .monospaced))
+            HStack(spacing: DesignTokens.Space.s2) {
+                Text(didCopy ? "Link copied." : photo.verificationLink)
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 12, weight: .medium))
+                    .symbolStyle(DesignTokens.TextStyles.label)
             }
-            .foregroundStyle(didCopy ? Theme.success : Theme.ctaForeground)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Theme.ctaBackground, in: RoundedRectangle(cornerRadius: 10))
-            .contentShape(.rect)
+            .foregroundStyle(Theme.foreground)
+            .padding(.horizontal, DesignTokens.Space.s4)
+            .frame(minHeight: DesignTokens.Size.controlHeight)
+            .background(Theme.surface, in: Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Copy verification link")
@@ -272,13 +275,13 @@ struct ShareSheetView: View {
     }
 
     private func optionLabel(for option: ShareOption) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: DesignTokens.Space.s2) {
             Image(systemName: option.symbol)
-                .font(.system(size: 20))
-                .ctaIcon(diameter: 48)
+                .symbolStyle(DesignTokens.TextStyles.title)
+                .ctaIcon()
             Text(option.label)
-                .font(Theme.font(size: 10))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.caption)
+                .foregroundStyle(Theme.mutedForeground)
         }
     }
 
@@ -293,11 +296,11 @@ struct ShareSheetView: View {
         UIPasteboard.general.url = photo.verificationURL
         UINotificationFeedbackGenerator().notificationOccurred(.success)
 
-        withAnimation(.easeOut(duration: 0.15)) { didCopy = true }
+        withAnimation(.brandBase) { didCopy = true }
 
         Task {
             try? await Task.sleep(for: .seconds(1.6))
-            withAnimation(.easeOut(duration: 0.15)) { didCopy = false }
+            withAnimation(.brandBase) { didCopy = false }
         }
     }
 }
