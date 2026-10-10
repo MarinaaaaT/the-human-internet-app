@@ -9,25 +9,25 @@ struct PhotoVerificationInfoSheet: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                 SheetGrabber()
 
-                Text("About Human Photo Verification")
-                    .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                Text("About human photo verification")
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
 
                 Text("We guarantee this photo was taken by a human, using the camera on their phone.")
-                    .font(Theme.font(size: 14))
-                    .foregroundStyle(Theme.textSecondary)
+                    .textStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.mutedForeground)
 
                 Text("We do not guarantee that the contents of the photo aren't AI generated — someone could still point their camera at a screen. Closing that gap is on our roadmap.")
-                    .font(Theme.font(size: 14))
-                    .foregroundStyle(Theme.textSecondary)
+                    .textStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.mutedForeground)
 
                 Spacer()
             }
-            .padding(24)
-            .padding(.top, 16)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s4)
         }
         .presentationDetents([.fraction(0.4)])
         .presentationBackground(Theme.background)

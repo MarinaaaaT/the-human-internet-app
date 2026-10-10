@@ -30,25 +30,26 @@ struct WebPreviewView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 18, weight: .semibold))
+                            .symbolStyle(DesignTokens.TextStyles.title)
                             .ctaIcon()
                     }
+                    .accessibilityLabel("Close")
                     Spacer()
                     Text(url.host ?? "")
-                        .font(Theme.font(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .textStyle(DesignTokens.TextStyles.caption)
+                        .foregroundStyle(Theme.mutedForeground)
                     Spacer()
                     // Balances the close button so the host label stays centered.
-                    Color.clear.frame(width: 36, height: 36)
+                    Color.clear.frame(width: DesignTokens.Size.iconButton, height: DesignTokens.Size.iconButton)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .padding(.top, DesignTokens.Space.s3)
+                .padding(.bottom, DesignTokens.Space.s2)
 
                 ZStack {
                     WebView(url: url, isLoading: $isLoading)
                     if isLoading {
-                        ProgressView().tint(Theme.textPrimary)
+                        ProgressView().tint(Theme.foreground)
                     }
                 }
             }

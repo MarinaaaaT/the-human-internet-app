@@ -14,23 +14,23 @@ struct VerificationStatusSheet: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                 SheetGrabber()
 
-                Text("Verification Status")
-                    .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                Text("Verification status")
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
 
                 ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
                     Text(paragraph)
-                        .font(Theme.font(size: 14))
-                        .foregroundStyle(Theme.textSecondary)
+                        .textStyle(DesignTokens.TextStyles.body)
+                        .foregroundStyle(Theme.mutedForeground)
                 }
 
                 Spacer()
             }
-            .padding(24)
-            .padding(.top, 16)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s4)
         }
         .presentationDetents([.fraction(0.4)])
         .presentationBackground(Theme.background)

@@ -2,77 +2,95 @@
 //  Components.swift
 //  the-human-internet
 //
+//  Buttons and fields. Brand components (cards, badges, the reveal) are in
+//  BrandComponents.swift. Every value here comes from DesignTokens.
+//
 
 import SwiftUI
 
+/// The three CTA roles as full-width pills. Use at most one primary per screen.
+struct CTAButton: View {
+    let title: String
+    var role: CTARole = .primary
+    var isEnabled: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .textStyle(DesignTokens.TextStyles.label)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .ctaStyle(role)
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.5)
+        .disabled(!isEnabled)
+    }
+}
+
+/// Black pill.
 struct PrimaryButton: View {
     let title: String
     var isEnabled: Bool = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(Theme.font(size: 16, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-        }
-        .ctaStyle()
-        .opacity(isEnabled ? 1 : 0.5)
-        .disabled(!isEnabled)
+        CTAButton(title: title, role: .primary, isEnabled: isEnabled, action: action)
     }
 }
 
+/// Light-grey pill — the second of a pair.
 struct SecondaryButton: View {
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(Theme.font(size: 16, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-        }
-        .ctaStyle(.secondary)
-    }
-}
-
-struct LightButton: View {
     let title: String
     var isEnabled: Bool = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(Theme.font(size: 16, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-        }
-        .ctaStyle()
-        .opacity(isEnabled ? 1 : 0.5)
-        .disabled(!isEnabled)
+        CTAButton(title: title, role: .secondary, isEnabled: isEnabled, action: action)
     }
 }
 
+/// Text only, for low-emphasis actions ("Not now").
+struct TertiaryButton: View {
+    let title: String
+    var isEnabled: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        CTAButton(title: title, role: .tertiary, isEnabled: isEnabled, action: action)
+    }
+}
+
+/// Grey field, no stroke. Pair with a `FieldLabel` above; pass `error` to
+/// outline it and show the message below.
 struct HITextField: View {
     let placeholder: String
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
+    var error: String? = nil
 
     var body: some View {
-        TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.placeholder))
-            .keyboardType(keyboardType)
-            .foregroundStyle(Theme.textPrimary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Theme.divider, lineWidth: 1)
-            )
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
+            TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Theme.subtleForeground))
+                .keyboardType(keyboardType)
+                .textStyle(DesignTokens.TextStyles.body)
+                .foregroundStyle(Theme.foreground)
+                .padding(.horizontal, DesignTokens.Space.s4)
+                .frame(minHeight: DesignTokens.Size.controlHeight)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.md, style: .continuous))
+                .overlay {
+                    if error != nil {
+                        RoundedRectangle(cornerRadius: DesignTokens.Radius.md, style: .continuous)
+                            .stroke(Theme.destructive, lineWidth: 1)
+                    }
+                }
+            if let error {
+                Text(error)
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .foregroundStyle(Theme.destructive)
+            }
+        }
     }
 }
 
@@ -81,16 +99,16 @@ struct FieldLabel: View {
 
     var body: some View {
         Text(text)
-            .font(Theme.font(size: 13, weight: .medium))
-            .foregroundStyle(Theme.textSecondary)
+            .textStyle(DesignTokens.TextStyles.label)
+            .foregroundStyle(Theme.mutedForeground)
     }
 }
 
 struct SheetGrabber: View {
     var body: some View {
         Capsule()
-            .fill(Color.black.opacity(0.2))
-            .frame(width: 36, height: 4)
+            .fill(Theme.border)
+            .frame(width: DesignTokens.Space.s8, height: DesignTokens.Space.s1)
             .frame(maxWidth: .infinity)
     }
 }
@@ -103,22 +121,27 @@ struct RadioRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: DesignTokens.Space.s3) {
                 Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(Theme.selection)
-                VStack(alignment: .leading, spacing: 2) {
+                    .symbolStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.foreground)
+                VStack(alignment: .leading, spacing: 0) {
                     Text(title)
-                        .font(Theme.font(size: 15, weight: .medium))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.body)
+                        .foregroundStyle(Theme.foreground)
                     if let subtitle {
                         Text(subtitle)
-                            .font(Theme.font(size: 12))
-                            .foregroundStyle(Theme.textSecondary)
+                            .textStyle(DesignTokens.TextStyles.label)
+                            .foregroundStyle(Theme.mutedForeground)
                     }
                 }
                 Spacer()
             }
+            .frame(minHeight: DesignTokens.Size.minTouch)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -134,7 +157,7 @@ struct RadioRow: View {
 /// Subviews are measured at their ideal size (`.unspecified`), so anything
 /// wider than the container gets its own row rather than being shrunk.
 struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
+    var spacing: CGFloat = DesignTokens.Space.s2
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let rows = rows(subviews: subviews, maxWidth: proposal.width ?? .infinity)

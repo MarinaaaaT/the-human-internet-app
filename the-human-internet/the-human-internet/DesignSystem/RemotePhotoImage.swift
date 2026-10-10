@@ -63,11 +63,11 @@ struct RemotePhotoImage: View {
             } else if didFail {
                 placeholder {
                     Image(systemName: "photo")
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(Theme.mutedForeground)
                 }
             } else {
                 placeholder {
-                    ProgressView().tint(Theme.textPrimary)
+                    ProgressView().tint(Theme.foreground)
                 }
             }
         }

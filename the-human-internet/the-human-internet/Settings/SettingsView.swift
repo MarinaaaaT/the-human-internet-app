@@ -28,15 +28,15 @@ struct SettingsView: View {
                     settingsRow(title: "Username", value: appState.user.username.isEmpty ? "—" : appState.user.username, icon: "pencil") {
                         showEditUsername = true
                     }
-                    Divider().overlay(Theme.divider)
+                    Divider().overlay(Theme.border)
                     settingsRow(title: "Privacy", value: appState.user.privacy.rawValue, icon: "pencil") {
                         showPrivacySheet = true
                     }
-                    Divider().overlay(Theme.divider)
-                    settingsRow(title: "Verification Status", value: statusLabel, icon: "info.circle") {
+                    Divider().overlay(Theme.border)
+                    settingsRow(title: "Verification status", value: statusLabel, icon: "info.circle") {
                         showVerificationInfo = true
                     }
-                    Divider().overlay(Theme.divider)
+                    Divider().overlay(Theme.border)
 
                     // The reward for being verified: deciding what else goes
                     // on your public verification page beyond the photo —
@@ -55,13 +55,13 @@ struct SettingsView: View {
                     if appState.isCustomVerificationPagesEnabled,
                        appState.user.verificationStatus == .verified {
                         settingsRow(
-                            title: "Verification Page",
+                            title: "Verification page",
                             value: "Customize",
                             icon: "chevron.right"
                         ) {
                             showVerificationPage = true
                         }
-                        Divider().overlay(Theme.divider)
+                        Divider().overlay(Theme.border)
                     }
 
                     // Verification is optional and skippable during onboarding,
@@ -81,26 +81,26 @@ struct SettingsView: View {
                     if appState.isStripeIdentityVerificationEnabled,
                        appState.user.verificationStatus == .unverified {
                         settingsRow(
-                            title: "Identity Verification",
-                            value: "Verify Identity",
+                            title: "Identity verification",
+                            value: "Verify identity",
                             icon: "chevron.right"
                         ) {
                             showIdentityVerification = true
                         }
-                        Divider().overlay(Theme.divider)
+                        Divider().overlay(Theme.border)
                     }
 
                     // Leaves the app on purpose: a Discord invite needs the
                     // user's own logged-in Discord session, so it belongs in
                     // the Discord app (or Safari), not a WKWebView.
                     settingsRow(
-                        title: "Contact Us",
+                        title: "Contact us",
                         value: "Join our Discord",
                         icon: "arrow.up.right"
                     ) {
                         UIApplication.shared.open(ExternalLink.discord)
                     }
-                    Divider().overlay(Theme.divider)
+                    Divider().overlay(Theme.border)
 
                     settingsRow(
                         title: "Feedback",
@@ -109,34 +109,37 @@ struct SettingsView: View {
                     ) {
                         showFeedback = true
                     }
-                    Divider().overlay(Theme.divider)
+                    Divider().overlay(Theme.border)
 
                     settingsRow(
-                        title: "Account Settings",
+                        title: "Account settings",
                         value: "Manage your account",
                         icon: "chevron.right"
                     ) {
                         showAccountSettings = true
                     }
-                    Divider().overlay(Theme.divider)
+                    Divider().overlay(Theme.border)
 
                     Button {
                         showSignOutConfirmation = true
                     } label: {
                         HStack {
-                            Text("Log Out")
-                                .font(Theme.font(size: 16, weight: .medium))
+                            Text("Log out")
+                                .textStyle(DesignTokens.TextStyles.body)
                             Spacer()
                             Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .symbolStyle(DesignTokens.TextStyles.body)
                         }
-                        .foregroundStyle(Theme.ctaForeground)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
+                        .foregroundStyle(Theme.foreground)
+                        .padding(.horizontal, DesignTokens.Space.s6)
+                        .padding(.vertical, DesignTokens.Space.s4)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
 
                     Spacer()
                 }
-                .padding(.top, 8)
+                .padding(.top, DesignTokens.Space.s2)
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -145,8 +148,8 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")
-                        .font(Theme.font(size: 17, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.title)
+                        .foregroundStyle(Theme.foreground)
                 }
             }
             .navigationDestination(isPresented: $showAccountSettings) {
@@ -259,24 +262,20 @@ struct SettingsView: View {
         }
     }
 
-    private func settingsRow(title: String, value: String, valueColor: Color = Theme.textPrimary, icon: String, action: @escaping () -> Void) -> some View {
+    private func settingsRow(title: String, value: String, valueColor: Color = Theme.foreground, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(Theme.font(size: 13))
-                        .foregroundStyle(Theme.textSecondary)
-                    Text(value)
-                        .font(Theme.font(size: 16, weight: .medium))
-                        .foregroundStyle(valueColor)
-                }
+                LabelValue(label: title, value: value)
                 Spacer()
                 Image(systemName: icon)
-                    .foregroundStyle(Theme.textSecondary)
+                    .symbolStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.mutedForeground)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.horizontal, DesignTokens.Space.s6)
+            .padding(.vertical, DesignTokens.Space.s4)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 }
 

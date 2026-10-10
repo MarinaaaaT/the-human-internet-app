@@ -15,19 +15,19 @@ struct EditUsernameSheet: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
                 SheetGrabber()
 
-                Text("Edit Username")
-                    .font(Theme.font(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                Text("Edit username")
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
 
                 HITextField(placeholder: "New username here", text: $username)
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(Theme.font(size: 13))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.label)
+                        .foregroundStyle(Theme.destructive)
                 }
 
                 PrimaryButton(
@@ -37,8 +37,8 @@ struct EditUsernameSheet: View {
                     save()
                 }
             }
-            .padding(24)
-            .padding(.top, 16)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s4)
         }
         .presentationDetents([.fraction(0.35)])
         .presentationBackground(Theme.background)

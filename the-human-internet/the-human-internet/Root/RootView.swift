@@ -18,7 +18,7 @@ struct RootView: View {
                 ZStack {
                     Theme.background.ignoresSafeArea()
                     ProgressView()
-                        .tint(Theme.textPrimary)
+                        .tint(Theme.foreground)
                 }
             } else if appState.isOnboarded {
                 MainTabView()
@@ -27,11 +27,11 @@ struct RootView: View {
             }
         }
         // The default for any text that doesn't set its own — List rows,
-        // alerts' callers, text fields. Explicit `.font(Theme.font(...))`
+        // alerts' callers, text fields. Explicit `.textStyle(...)`
         // calls override it.
-        .font(Theme.font(size: 17))
+        .textStyle(DesignTokens.TextStyles.body)
         // System buttons (toolbar items, alert actions) are CTAs too.
-        .tint(Theme.ctaForeground)
+        .tint(Theme.foreground)
         .preferredColorScheme(.light)
         .onOpenURL { url in
             handle(url: url)

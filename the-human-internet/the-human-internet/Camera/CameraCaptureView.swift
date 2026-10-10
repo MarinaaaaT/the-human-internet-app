@@ -14,6 +14,8 @@ struct CameraCaptureView: View {
     /// Drives the shutter blink over the preview. Purely cosmetic — it never
     /// gates capture, so rapid taps still all go through.
     @State private var shutterFlash = 0.0
+    /// Bumped per capture; drives the shutter haptic.
+    @State private var captureCount = 0
 
     var body: some View {
         ZStack {
@@ -63,7 +65,7 @@ struct CameraCaptureView: View {
             // Sits above the preview but below the controls, so only the
             // viewfinder blinks — matching the system Camera app, where the
             // shutter and chrome stay visible through the flash.
-            Color.black
+            Theme.foreground
                 .ignoresSafeArea()
                 .opacity(shutterFlash)
                 .allowsHitTesting(false)
@@ -71,16 +73,16 @@ struct CameraCaptureView: View {
             VStack {
                 HStack {
                     Spacer()
-                    Button {
+                    HumanIconButton(
+                        systemName: "arrow.triangle.2.circlepath.camera",
+                        accessibilityLabel: "Flip camera",
+                        surface: .media
+                    ) {
                         cameraSession.flipCamera()
-                    } label: {
-                        Image(systemName: "arrow.triangle.2.circlepath.camera")
-                            .font(.system(size: 18, weight: .semibold))
-                            .ctaIcon(.tertiary, diameter: 44)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .padding(.top, DesignTokens.Space.s3)
 
                 Spacer()
 
@@ -96,12 +98,12 @@ struct CameraCaptureView: View {
                                         PhotoUploadQueue.retry(photoID: last.id, appState: appState)
                                     }
                                 )
-                                    .frame(width: 48, height: 48)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
+                                    .frame(width: DesignTokens.Size.iconButton, height: DesignTokens.Size.iconButton)
+                                    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.sm, style: .continuous))
                             }
+                            .accessibilityLabel("Last photo")
                         } else {
-                            Color.clear.frame(width: 48, height: 48)
+                            Color.clear.frame(width: DesignTokens.Size.iconButton, height: DesignTokens.Size.iconButton)
                         }
                         Spacer()
                     }
@@ -109,58 +111,66 @@ struct CameraCaptureView: View {
                     Button {
                         capture()
                     } label: {
+                        // The shutter: a white disc ringed in black — the one
+                        // control big enough to find without looking.
                         Circle()
-                            .fill(Theme.ctaTertiaryBackground)
-                            .frame(width: 72, height: 72)
-                            .overlay(Circle().stroke(Theme.ctaTertiaryForeground, lineWidth: 4).padding(4))
+                            .fill(Theme.background)
+                            .frame(width: DesignTokens.Space.s16, height: DesignTokens.Space.s16)
+                            .overlay(Circle().stroke(Theme.foreground, lineWidth: 2).padding(DesignTokens.Space.s1))
                     }
+                    .accessibilityLabel("Take photo")
+                    // Soft impact on capture — one of the two moments the
+                    // design system allows a haptic.
+                    .sensoryFeedback(.impact(flexibility: .soft), trigger: captureCount)
                 }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 24)
+                .padding(.horizontal, DesignTokens.Space.s8)
+                .padding(.bottom, DesignTokens.Space.s6)
             }
         }
     }
 
     private var noCameraAvailableView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DesignTokens.Space.s4) {
             Image(systemName: "camera.metering.unknown")
-                .font(.system(size: 40))
-                .foregroundStyle(Theme.textSecondary)
-            Text("No camera available")
-                .font(Theme.font(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
+                .symbolStyle(DesignTokens.TextStyles.h1)
+                .foregroundStyle(Theme.mutedForeground)
+            Text("No camera available.")
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.foreground)
             Text("This device doesn't have a usable camera — the Simulator, for instance, has none. Try a physical iPhone.")
-                .font(Theme.font(size: 14))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.body)
+                .foregroundStyle(Theme.mutedForeground)
                 .multilineTextAlignment(.center)
         }
-        .padding(32)
+        .padding(DesignTokens.Space.s8)
     }
 
     private var permissionDeniedView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(Theme.textSecondary)
-            Text("Camera access is off")
-                .font(Theme.font(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
+        VStack(spacing: DesignTokens.Space.s4) {
+            Image(systemName: "camera")
+                .symbolStyle(DesignTokens.TextStyles.h1)
+                .foregroundStyle(Theme.mutedForeground)
+            Text("Camera access is off.")
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.foreground)
             Text("Turn on camera access in Settings to take a photo.")
-                .font(Theme.font(size: 14))
-                .foregroundStyle(Theme.textSecondary)
+                .textStyle(DesignTokens.TextStyles.body)
+                .foregroundStyle(Theme.mutedForeground)
                 .multilineTextAlignment(.center)
-            Button("Open Settings") {
+            Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
+            } label: {
+                Text("Open Settings")
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .padding(.horizontal, DesignTokens.Space.s6)
+                    .ctaStyle()
             }
-            .font(Theme.font(size: 15, weight: .semibold))
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .ctaStyle()
-            .padding(.top, 4)
+            .buttonStyle(.plain)
+            .padding(.top, DesignTokens.Space.s1)
         }
-        .padding(32)
+        .padding(DesignTokens.Space.s8)
     }
 
     /// Blinks the viewfinder to black and back. Driven from the tap rather
@@ -179,6 +189,7 @@ struct CameraCaptureView: View {
     private func capture() {
         guard let userID = appState.user.id else { return }
         flashShutter()
+        captureCount += 1
 
         Task {
             do {

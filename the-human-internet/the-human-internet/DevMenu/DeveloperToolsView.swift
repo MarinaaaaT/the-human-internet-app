@@ -36,7 +36,7 @@ struct DeveloperToolsView: View {
                 footer("New photos are watermarked and uploaded as usual but not signed, so they carry no C2PA manifest. This device only.")
             }
         }
-        .tint(Theme.selection)
+        .tint(Theme.foreground)
         .scrollContentBackground(.hidden)
         .background(Theme.background)
         .navigationTitle("Developer Tools")
@@ -76,8 +76,8 @@ struct DeveloperToolsView: View {
 
     private func footer(_ text: String) -> some View {
         Text(text)
-            .font(Theme.font(size: 12))
-            .foregroundStyle(Theme.textSecondary)
+            .textStyle(DesignTokens.TextStyles.caption)
+            .foregroundStyle(Theme.mutedForeground)
     }
 }
 

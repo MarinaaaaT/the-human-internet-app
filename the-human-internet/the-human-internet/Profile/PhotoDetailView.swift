@@ -37,18 +37,18 @@ struct PhotoDetailView: View {
                     isProvisional: appState.provisionalPhotoIDs.contains(photo.id)
                 )
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg, style: .continuous))
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .padding(.top, DesignTokens.Space.s3)
 
                 Spacer()
 
-                HStack(spacing: 12) {
+                HStack(spacing: DesignTokens.Space.s3) {
                     SecondaryButton(title: "Preview") { showPreviewSheet = true }
-                    LightButton(title: "Share") { showShareSheet = true }
+                    PrimaryButton(title: "Share") { showShareSheet = true }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
+                .padding(.horizontal, DesignTokens.Space.s6)
+                .padding(.bottom, DesignTokens.Space.s6)
             }
         }
         .navigationTitle("")
@@ -59,8 +59,9 @@ struct PhotoDetailView: View {
                     showDeleteConfirmation = true
                 } label: {
                     Image(systemName: "trash")
-                        .foregroundStyle(Theme.ctaForeground)
+                        .foregroundStyle(Theme.foreground)
                 }
+                .accessibilityLabel("Delete photo")
                 .disabled(isDeleting)
             }
         }

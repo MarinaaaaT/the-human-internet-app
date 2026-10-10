@@ -12,39 +12,46 @@ struct ProfileSetupView: View {
     @State private var username = ""
     @State private var selectedIcon = 0
 
-    private let iconOptions = ["person.fill", "pawprint.fill", "star.fill", "flame.fill", "leaf.fill", "moon.fill"]
+    /// Outline symbols, per the icon rule. Stored by index
+    /// (`profileIconIndex`), so the order must not change.
+    private let iconOptions = ["person", "pawprint", "star", "flame", "leaf", "moon"]
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s8) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
                     Text("Set up profile")
-                        .font(Theme.font(size: 24, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
+                        .textStyle(DesignTokens.TextStyles.h2)
+                        .foregroundStyle(Theme.foreground)
                     Text("The information below may be visible to the public. It can be changed later.")
-                        .font(Theme.font(size: 14))
-                        .foregroundStyle(Theme.textSecondary)
+                        .textStyle(DesignTokens.TextStyles.body)
+                        .foregroundStyle(Theme.mutedForeground)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
                     FieldLabel(text: "Username")
-                    HITextField(placeholder: "Your Username", text: $username)
+                    HITextField(placeholder: "Your username", text: $username)
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    FieldLabel(text: "Profile Icon")
-                    HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
+                    FieldLabel(text: "Profile icon")
+                    // Six 48pt circles don't fit a small phone in one row.
+                    FlowLayout(spacing: DesignTokens.Space.s2) {
                         ForEach(iconOptions.indices, id: \.self) { index in
                             Button {
                                 selectedIcon = index
                             } label: {
                                 Image(systemName: iconOptions[index])
-                                    .ctaIcon(diameter: 44)
+                                    .symbolStyle(DesignTokens.TextStyles.title)
+                                    .ctaIcon()
                                     .overlay(
-                                        Circle().stroke(selectedIcon == index ? Theme.selection : .clear, lineWidth: 2)
+                                        Circle().stroke(selectedIcon == index ? Theme.foreground : .clear, lineWidth: 2)
                                     )
                             }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(iconOptions[index])
+                            .accessibilityAddTraits(selectedIcon == index ? .isSelected : [])
                         }
                     }
                 }
@@ -57,8 +64,8 @@ struct ProfileSetupView: View {
                     onNext()
                 }
             }
-            .padding(24)
-            .padding(.top, 24)
+            .padding(DesignTokens.Space.s6)
+            .padding(.top, DesignTokens.Space.s6)
         }
         .onAppear {
             // Resuming after a previous session — prefill what was already entered.

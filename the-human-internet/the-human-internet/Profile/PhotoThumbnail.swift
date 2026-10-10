@@ -34,7 +34,7 @@ struct PhotoThumbnail: View {
             .aspectRatio(1, contentMode: .fit)
             .overlay {
                 if selectionState == .selected {
-                    Color.black.opacity(0.25)
+                    Theme.foreground.opacity(0.25)
                 }
             }
             .clipped()
@@ -55,18 +55,18 @@ struct PhotoThumbnail: View {
             EmptyView()
         case .unselected:
             Image(systemName: "circle")
-                .font(.system(size: 20))
-                .foregroundStyle(.white)
+                .symbolStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.background)
                 // Backing disc so the outline stays visible on a light photo,
                 // same trick the status badge below uses.
-                .background(.black.opacity(0.35), in: Circle())
-                .padding(8)
+                .background(Theme.foreground.opacity(0.35), in: Circle())
+                .padding(DesignTokens.Space.s2)
         case .selected:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 20))
+                .symbolStyle(DesignTokens.TextStyles.title)
                 .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, Theme.selection)
-                .padding(8)
+                .foregroundStyle(Theme.background, Theme.foreground)
+                .padding(DesignTokens.Space.s2)
         }
     }
 
@@ -77,20 +77,21 @@ struct PhotoThumbnail: View {
             EmptyView()
         case .processing:
             ProgressView()
-                .tint(.white)
-                .scaleEffect(0.7)
-                .padding(6)
-                .background(.black.opacity(0.45), in: Circle())
-                .padding(6)
+                .tint(Theme.foreground)
+                .padding(DesignTokens.Space.s2)
+                .background(Theme.background, in: Circle())
+                .padding(DesignTokens.Space.s2)
         case .failed:
             Button {
                 onRetry()
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 11, weight: .bold))
-                    .ctaIcon(.tertiary, diameter: 24)
+                    .symbolStyle(DesignTokens.TextStyles.body)
+                    .ctaIcon(.media)
             }
-            .padding(6)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Retry upload")
+            .padding(DesignTokens.Space.s1)
         }
     }
 }

@@ -57,7 +57,7 @@ struct OnboardingFlowView: View {
                     } else {
                         ZStack {
                             Theme.background.ignoresSafeArea()
-                            ProgressView().tint(Theme.textPrimary)
+                            ProgressView().tint(Theme.foreground)
                         }
                         .onAppear { skipVerification() }
                     }

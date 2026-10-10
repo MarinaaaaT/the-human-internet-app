@@ -5,25 +5,51 @@
 
 import SwiftUI
 
+/// The spiral "imprint" — the brand's one hand-made shape, and the only way
+/// the app says *verified*. Drawn from the `BrandMark` asset (the same
+/// mark.svg as the website's public/brand/), as a template image so it takes
+/// `color`: black on the page, white over a photo.
+///
+/// Not the watermark: that is `BrandMarkWatermark`, a PNG shared with the
+/// signing Lambda — see `PhotoWatermarker`.
 struct BrandMark: View {
-    var size: CGFloat = 60
-    var color: Color = Theme.accentPink
+    /// Height in points; the width follows the artwork.
+    var size: CGFloat = DesignTokens.Size.icon
+    var color: Color = DesignTokens.Colors.foreground
 
     var body: some View {
-        VStack(spacing: 0) {
-            Capsule()
-                .fill(color)
-                .frame(width: size, height: size * 0.22)
-            RoundedRectangle(cornerRadius: size * 0.3)
-                .fill(color)
-                .frame(width: size * 0.5, height: size * 0.62)
-                .offset(y: -size * 0.04)
-        }
+        Image("BrandMark")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(height: size)
+            .foregroundStyle(color)
+            .accessibilityHidden(true)
+    }
+}
+
+/// "the human ~ internet". Always lowercase, never re-set in type.
+struct Wordmark: View {
+    /// Height in points; the width follows the artwork.
+    var height: CGFloat = DesignTokens.Space.s4
+    var color: Color = DesignTokens.Colors.foreground
+
+    var body: some View {
+        Image("Wordmark")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(height: height)
+            .foregroundStyle(color)
+            .accessibilityLabel("the human internet")
     }
 }
 
 #Preview {
-    BrandMark(size: 100)
-        .padding()
-        .background(Theme.background)
+    VStack(spacing: DesignTokens.Space.s8) {
+        BrandMark(size: DesignTokens.Size.thumbnail)
+        Wordmark()
+    }
+    .padding()
+    .background(Theme.background)
 }
