@@ -30,6 +30,9 @@ struct RemotePhotoImage: View {
     var isProvisional: Bool = false
 
     @State private var image: UIImage?
+    /// Black or white for the provisional mark over `image` — worked out once
+    /// per loaded image rather than on every body evaluation.
+    @State private var provisionalMarkColor: PhotoWatermarker.MarkColor = .white
     @State private var didFail = false
     /// Which photo — and which version of it — `image` actually belongs to.
     /// Call sites that reuse one spot in the view tree for different photos
@@ -58,7 +61,7 @@ struct RemotePhotoImage: View {
                     // the mark is placed against the whole photo even where
                     // a `.fill` thumbnail crops it.
                     .overlay {
-                        if isProvisional { ProvisionalWatermark() }
+                        if isProvisional { ProvisionalWatermark(color: provisionalMarkColor) }
                     }
             } else if didFail {
                 placeholder {
@@ -110,6 +113,10 @@ struct RemotePhotoImage: View {
     /// so a cached raw frame would outlive the watermarked photo replacing it
     /// and be shown, unmarked, for as long as the process lives.
     private func cacheAndSet(_ decoded: UIImage?) {
+        if isProvisional, let decoded, let mark = UIImage(named: PhotoWatermarker.markAssetName), mark.size.width > 0 {
+            let rect = PhotoWatermarker.markRect(in: decoded.size, markAspectRatio: mark.size.height / mark.size.width)
+            provisionalMarkColor = PhotoWatermarker.markColor(for: decoded, in: rect)
+        }
         image = decoded
         loadedKey = loadKey
         if isThumbnail, !isProvisional, let decoded {
