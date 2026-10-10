@@ -101,6 +101,36 @@ enum PhotoUploadQueue {
     private static var activeProcessingCount = 0
     private static var processingWaiters: [CheckedContinuation<Void, Never>] = []
 
+    /// How long to wait before each automatic retry of failed uploads, in
+    /// order. Once these are spent, failures stay put until the user taps
+    /// "try again" (or relaunches) — a dead network or a server rejection
+    /// isn't worth hammering every few seconds.
+    static let autoRetryDelays: [Duration] = [.seconds(10), .seconds(30), .seconds(60)]
+
+    /// The delay before the next automatic retry, or `nil` once
+    /// `attemptsMade` has used up `autoRetryDelays`.
+    static func autoRetryDelay(afterAttempts attemptsMade: Int) -> Duration? {
+        autoRetryDelays.indices.contains(attemptsMade) ? autoRetryDelays[attemptsMade] : nil
+    }
+
+    /// One timer for every failed photo, not one per photo: a failure while
+    /// a retry is already scheduled just joins that batch.
+    private static var autoRetryTask: Task<Void, Never>?
+    private static var autoRetryAttempts = 0
+
+    /// A manual "try again" only goes through this long after the most
+    /// recent failure, so repeated tapping can't hammer a backend that just
+    /// said no.
+    static let manualRetryCooldown: Duration = .seconds(15)
+    private static var lastFailureAt: ContinuousClock.Instant?
+
+    /// When a manual retry will next be accepted, or `nil` if it already is.
+    static var manualRetryAvailableAt: ContinuousClock.Instant? {
+        guard let lastFailureAt else { return nil }
+        let availableAt = lastFailureAt + manualRetryCooldown
+        return availableAt > .now ? availableAt : nil
+    }
+
     private static func acquireProcessingSlot() async {
         if activeProcessingCount < maxConcurrentProcessing {
             activeProcessingCount += 1
@@ -153,6 +183,7 @@ enum PhotoUploadQueue {
     /// `appState.photos` here as well — otherwise it wouldn't appear until
     /// its upload finishes.
     static func resumePendingUploads(userID: UUID, appState: AppState) {
+        resetAutoRetry()
         sweep(currentUserID: userID)
         for item in loadManifest() where item.userID == userID {
             if !appState.photos.contains(where: { $0.id == item.id }) {
@@ -167,10 +198,49 @@ enum PhotoUploadQueue {
         appState.photos.sort { $0.capturedAt > $1.capturedAt }
     }
 
-    /// Manually re-attempts a specific upload that previously failed.
+    /// Manually re-attempts uploads that previously failed. A manual retry
+    /// restarts the automatic backoff from its first delay, since the user
+    /// tapping is a signal that whatever broke may have cleared. Ignored
+    /// until `manualRetryCooldown` has passed since the last failure.
+    static func retry(photoIDs: some Sequence<UUID>, appState: AppState) {
+        guard manualRetryAvailableAt == nil else { return }
+        resetAutoRetry()
+        redrive(photoIDs: photoIDs, appState: appState)
+    }
+
     static func retry(photoID: UUID, appState: AppState) {
-        guard let item = loadManifest().first(where: { $0.id == photoID }) else { return }
-        drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
+        retry(photoIDs: [photoID], appState: appState)
+    }
+
+    private static func redrive(photoIDs: some Sequence<UUID>, appState: AppState) {
+        let manifest = loadManifest()
+        for photoID in photoIDs {
+            guard let item = manifest.first(where: { $0.id == photoID }) else { continue }
+            drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
+        }
+    }
+
+    /// Called on every failure. Schedules one retry of *all* failed photos
+    /// after the next delay in `autoRetryDelays` — unless one is already
+    /// scheduled, which this failure simply joins, or the delays are spent.
+    private static func scheduleAutoRetry(appState: AppState) {
+        guard autoRetryTask == nil,
+              let delay = autoRetryDelay(afterAttempts: autoRetryAttempts) else { return }
+        autoRetryAttempts += 1
+        autoRetryTask = Task {
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            // Cleared before driving, so failures from this batch schedule
+            // the next delay rather than finding a timer still "pending".
+            autoRetryTask = nil
+            redrive(photoIDs: appState.failedPhotoIDs, appState: appState)
+        }
+    }
+
+    private static func resetAutoRetry() {
+        autoRetryTask?.cancel()
+        autoRetryTask = nil
+        autoRetryAttempts = 0
     }
 
     /// The on-disk copy of a photo that's still pending upload, or `nil` once
@@ -206,6 +276,7 @@ enum PhotoUploadQueue {
     /// rare race noted on `cancelPendingUpload`; its completion handler's
     /// own manifest/file cleanup is a harmless no-op if this already ran.
     static func pruneOnSignOut(userID: UUID) {
+        resetAutoRetry()
         var manifest = loadManifest()
         for item in manifest where item.userID == userID {
             try? FileManager.default.removeItem(at: fileURL(for: item.id))
@@ -320,9 +391,16 @@ enum PhotoUploadQueue {
                 if let index = appState.photos.firstIndex(where: { $0.id == photoID }) {
                     appState.photos[index] = photo
                 }
+                // Everything went through: the next failure, whenever it
+                // comes, starts the backoff fresh.
+                if appState.processingPhotoIDs.isEmpty, appState.failedPhotoIDs.isEmpty {
+                    resetAutoRetry()
+                }
             } catch {
                 appState.processingPhotoIDs.remove(photoID)
                 appState.failedPhotoIDs.insert(photoID)
+                lastFailureAt = .now
+                scheduleAutoRetry(appState: appState)
                 Log.uploads.error("Upload failed for \(photoID, privacy: .public): \(error, privacy: .public)")
             }
         }

@@ -18,25 +18,18 @@ struct PendingPhotosBanner: View {
                 row(label: "Verifying", value: "\(countText(appState.processingPhotoIDs.count)) still being verified.")
             }
             if !appState.failedPhotoIDs.isEmpty {
-                Button {
-                    retryAllFailed()
-                } label: {
-                    row(label: "Not saved yet", value: "\(countText(appState.failedPhotoIDs.count)) failed to verify or save. Tap to try again.")
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .task {
-            // Belt-and-suspenders: re-kicks any manifest entry not
-            // currently being driven, in case a `Task` above ever dies
-            // without going through `drive()`'s own catch block. Not the
-            // primary recovery path — a killed/relaunched app already
-            // resumes via `AppState.hydrate` regardless of this view.
-            while true {
-                try? await Task.sleep(for: .seconds(10))
-                guard !Task.isCancelled else { return }
-                if let userID = appState.user.id {
-                    PhotoUploadQueue.resumePendingUploads(userID: userID, appState: appState)
+                // Ticks once a second only so the "Tap to try again" prompt
+                // appears the moment `PhotoUploadQueue`'s cooldown lapses.
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let canRetry = PhotoUploadQueue.manualRetryAvailableAt == nil
+                    let failed = "\(countText(appState.failedPhotoIDs.count)) failed to verify or save."
+                    Button {
+                        retryAllFailed()
+                    } label: {
+                        row(label: "Not saved yet", value: canRetry ? "\(failed) Tap to try again." : failed)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canRetry)
                 }
             }
         }
@@ -54,9 +47,7 @@ struct PendingPhotosBanner: View {
     }
 
     private func retryAllFailed() {
-        for photoID in appState.failedPhotoIDs {
-            PhotoUploadQueue.retry(photoID: photoID, appState: appState)
-        }
+        PhotoUploadQueue.retry(photoIDs: appState.failedPhotoIDs, appState: appState)
     }
 }
 
