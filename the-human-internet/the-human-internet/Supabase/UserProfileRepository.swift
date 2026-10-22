@@ -88,8 +88,8 @@ enum UserProfileRepository {
     /// `prevent_self_verified_name_change` trigger would revert it anyway,
     /// but silently, which is worse than never sending it at all.
     ///
-    /// Read lazily by `VerificationPageSheet` rather than in
-    /// `AppState.hydrate`: one narrow query for one rarely-opened screen,
+    /// Read lazily by Profile settings and Photo settings rather than in
+    /// `AppState.hydrate`: one narrow query for rarely-opened screens,
     /// against a fifth round trip on every launch and sign-in.
     static func fetchVerifiedIdentity(userID: UUID) async throws -> VerifiedIdentity? {
         struct Row: Decodable {

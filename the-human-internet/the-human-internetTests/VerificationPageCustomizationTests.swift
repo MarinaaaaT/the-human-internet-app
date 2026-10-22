@@ -24,8 +24,8 @@ import Testing
 /// The handle rules matter more than they look. `users_social_links_check`
 /// rejects the *whole row*, and `HumanUser` round-trips through one upsert,
 /// so a handle the database refuses fails a save that is also carrying the
-/// username and the privacy setting. `VerificationPageSheet` normalises and
-/// validates before it ever gets there; these tests are what keep the two
+/// username and the privacy setting. Profile settings' handle editor
+/// normalises and validates before it ever gets there; these tests are what keep the two
 /// halves of that rule in step.
 struct VerificationPageCustomizationTests {
 

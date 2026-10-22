@@ -145,6 +145,51 @@ struct RadioRow: View {
     }
 }
 
+/// One row of a Settings page. With a `value`, a muted label over it (a
+/// `LabelValue`); without one, a single line for an action like "Log out".
+/// The trailing symbol says what a tap does: `chevron.right` opens a page,
+/// `pencil` edits, `info.circle` explains, `arrow.up.right` opens a website.
+struct SettingsRow: View {
+    let title: String
+    var value: String? = nil
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            SettingsRowLabel(title: title, value: value, systemImage: systemImage)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// `SettingsRow` without the button, for a row that is a `NavigationLink`
+/// or a `Menu` instead.
+struct SettingsRowLabel: View {
+    let title: String
+    var value: String? = nil
+    let systemImage: String
+
+    var body: some View {
+        HStack {
+            if let value {
+                LabelValue(label: title, value: value)
+            } else {
+                Text(title)
+                    .textStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.foreground)
+            }
+            Spacer()
+            Image(systemName: systemImage)
+                .symbolStyle(DesignTokens.TextStyles.body)
+                .foregroundStyle(value == nil ? Theme.foreground : Theme.mutedForeground)
+        }
+        .padding(.horizontal, DesignTokens.Space.s6)
+        .padding(.vertical, DesignTokens.Space.s4)
+        .contentShape(Rectangle())
+    }
+}
+
 /// Lays its subviews out left to right, wrapping to a new line when the next
 /// one won't fit — what CSS calls `flex-wrap`, which SwiftUI has no built-in
 /// container for. An `HStack` would compress or clip instead.

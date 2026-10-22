@@ -287,7 +287,7 @@ struct SocialLinks: Codable, Hashable, ExpressibleByArrayLiteral {
 /// verification surfaces state it with.
 ///
 /// Exists so the wording can't drift: `PhotoVerificationView` shows it to a
-/// viewer and `VerificationPageSheet` shows the owner what will be
+/// viewer and `VerifiedNameSheet` shows the owner what will be
 /// published, and those two disagreeing about what the claim says would be
 /// worse than either wording being imperfect. The website composes the same
 /// sentence in `page.tsx`.
@@ -424,7 +424,7 @@ struct HumanUser: Codable, Hashable {
     // MARK: Verification-page customization
     //
     // What a verified user chose to put on their public verification page
-    // beyond the photo itself — see `VerificationPageSheet`. Both ride along
+    // beyond the photo itself — see `PhotoSettingsView`. Both ride along
     // on the ordinary self-row upsert like everything else here, so anyone
     // can *write* them; that's fine, because neither makes a claim. The
     // claim is `verification_status`, which no client can write, and
@@ -507,11 +507,8 @@ struct VerifiedPhoto: Identifiable, Codable, Hashable {
     }
 
     /// Host of the public web verification page. Must stay in step with the
-    /// website's `/[photoId]` route. Not private: `VerificationPageSheet`
-    /// names it when telling the user where their customizations show up,
-    /// and a second hardcoded copy of the host is exactly the drift this
-    /// contract can't afford.
-    static let webHost = "the-human-internet.com"
+    /// website's `/[photoId]` route.
+    private static let webHost = "the-human-internet.com"
 
     /// Custom URL scheme registered in `Info.plist`. Swaps to a Universal
     /// Link once the website hosts an apple-app-site-association file.

@@ -79,6 +79,8 @@ struct DesignSystemStyleguide: View {
                     HITextField(placeholder: "", text: .constant("sam reyes"), error: "Handles can't contain spaces.")
                     RadioRow(title: "Public", subtitle: "Anyone with the link sees the photo.", isSelected: true) {}
                     RadioRow(title: "Humans Only", subtitle: "Only people on the human internet.", isSelected: false) {}
+                    SettingsRow(title: "Username", value: "samreyes", systemImage: "pencil") {}
+                    SettingsRow(title: "Log out", systemImage: "rectangle.portrait.and.arrow.right") {}
                 }
 
                 section("Cards") {
