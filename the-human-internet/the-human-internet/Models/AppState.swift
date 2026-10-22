@@ -122,8 +122,8 @@ final class AppState {
         isAdmin && skipC2PASigningPreference
     }
 
-    /// Whether Settings offers the verification-page editor to a verified
-    /// user.
+    /// Whether Settings offers the verification-page options to a verified
+    /// user. See `canCustomizeVerificationPage`.
     ///
     /// Like `isStripeIdentityVerificationEnabled`, this only decides what the
     /// app *shows*. The switch that binds is server-side: the same flag is
@@ -134,6 +134,20 @@ final class AppState {
         isEnabled(FeatureFlagKey.customVerificationPages)
     }
 
+    /// The reward for being verified: deciding what else goes on your public
+    /// verification page beyond the photo — your verified name, your social
+    /// handles. Profile settings shows the name and edits the handles, Photo
+    /// settings chooses what's published; both ask this, so they can't
+    /// disagree about who gets them.
+    ///
+    /// Presentation only, like the flag above. `get_verification_photo()`
+    /// re-checks both `verification_status` and the flag before it hands
+    /// any of these fields to the website, so this can't be what decides
+    /// whether an unverified account publishes a name.
+    var canCustomizeVerificationPage: Bool {
+        isCustomVerificationPagesEnabled && user.verificationStatus == .verified
+    }
+
     /// Whether new captures go through `sign-photo`'s capture pipeline
     /// (server watermarks, capture kept as the C2PA ingredient) instead of
     /// being watermarked on device. See `FeatureFlagKey.serverSideWatermark`.
@@ -141,8 +155,8 @@ final class AppState {
         isEnabled(FeatureFlagKey.serverSideWatermark)
     }
 
-    /// The user's **Photo Fingerprint** setting (Settings → Account
-    /// Settings): whether new captures get the brand mark burned into their
+    /// The user's **Photo Fingerprint** setting (Settings → Photo settings →
+    /// Visible fingerprint): whether new captures get the brand mark burned into their
     /// pixels. On by default, matching the column default. Off ⇒
     /// `PhotoUploadQueue` signs the raw capture as-is — still a full C2PA
     /// `digitalCapture` claim, just with no visible pointer to it.

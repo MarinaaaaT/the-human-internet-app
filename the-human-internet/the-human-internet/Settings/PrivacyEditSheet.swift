@@ -18,13 +18,19 @@ struct PrivacyEditSheet: View {
             VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
                 SheetGrabber()
 
-                Text("Privacy")
-                    .textStyle(DesignTokens.TextStyles.title)
-                    .foregroundStyle(Theme.foreground)
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
+                    Text("Privacy")
+                        .textStyle(DesignTokens.TextStyles.title)
+                        .foregroundStyle(Theme.foreground)
+                    Text("This setting controls who can see your photos and profile if they somehow gain access to the link.")
+                        .textStyle(DesignTokens.TextStyles.body)
+                        .foregroundStyle(Theme.mutedForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                     ForEach(PrivacyLevel.allCases) { level in
-                        RadioRow(title: level.rawValue, isSelected: selection == level) {
+                        RadioRow(title: level.rawValue, subtitle: subtitle(for: level), isSelected: selection == level) {
                             selection = level
                         }
                     }
@@ -43,9 +49,16 @@ struct PrivacyEditSheet: View {
             .padding(DesignTokens.Space.s6)
             .padding(.top, DesignTokens.Space.s4)
         }
-        .presentationDetents([.fraction(0.4)])
+        .presentationDetents([.medium])
         .presentationBackground(Theme.background)
         .onAppear { selection = appState.user.privacy }
+    }
+
+    private func subtitle(for level: PrivacyLevel) -> String {
+        switch level {
+        case .public_: return "Anyone with the link."
+        case .humansOnly: return "Only people with the app."
+        }
     }
 
     private func save() {

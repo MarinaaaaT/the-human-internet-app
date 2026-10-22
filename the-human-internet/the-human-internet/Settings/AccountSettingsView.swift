@@ -6,79 +6,40 @@
 import AuthenticationServices
 import SwiftUI
 
-/// Settings → Account Settings: the Photo Fingerprint switch, and deleting
-/// the account. Pushed onto Settings' `NavigationStack` rather than shown as
-/// a sheet, so the delete confirmation can be one without stacking sheets
-/// three deep.
+/// Settings → Account settings: privacy, and deleting the account. Pushed
+/// onto Settings' `NavigationStack` rather than shown as a sheet, so the
+/// delete confirmation can be one without stacking sheets three deep.
 struct AccountSettingsView: View {
     /// Called once the account is gone and local state has been cleared —
     /// Settings uses it to dismiss itself, the same as after Log Out.
     let onAccountDeleted: () -> Void
 
     @Environment(AppState.self) private var appState
+    @State private var showPrivacySheet = false
     @State private var showDeleteConfirmation = false
-    @State private var watermarkErrorMessage: String?
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
             VStack(spacing: 0) {
-                Toggle(isOn: watermarkBinding) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Space.s1) {
-                        Text("Photo fingerprint")
-                            .textStyle(DesignTokens.TextStyles.body)
-                            .foregroundStyle(Theme.foreground)
-                        Text(appState.isWatermarkEnabled
-                             ? "New photos are visibly watermarked."
-                             : "New photos are not visibly watermarked.")
-                            .textStyle(DesignTokens.TextStyles.label)
-                            .foregroundStyle(Theme.mutedForeground)
-                    }
-                }
-                .tint(Theme.foreground)
-                .padding(.horizontal, DesignTokens.Space.s6)
-                .padding(.vertical, DesignTokens.Space.s4)
-
-                if let watermarkErrorMessage {
-                    Text(watermarkErrorMessage)
-                        .textStyle(DesignTokens.TextStyles.label)
-                        .foregroundStyle(Theme.destructive)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, DesignTokens.Space.s6)
-                        .padding(.bottom, DesignTokens.Space.s3)
+                SettingsRow(title: "Privacy", value: appState.user.privacy.rawValue, systemImage: "pencil") {
+                    showPrivacySheet = true
                 }
                 Divider().overlay(Theme.border)
 
                 // A plain row, like Log Out — the confirmation sheet is where
                 // the weight of this goes, not the row.
-                Button {
+                SettingsRow(title: "Delete your account", systemImage: "trash") {
                     showDeleteConfirmation = true
-                } label: {
-                    HStack {
-                        Text("Delete your account")
-                            .textStyle(DesignTokens.TextStyles.body)
-                        Spacer()
-                        Image(systemName: "trash")
-                            .symbolStyle(DesignTokens.TextStyles.body)
-                    }
-                    .foregroundStyle(Theme.foreground)
-                    .padding(.horizontal, DesignTokens.Space.s6)
-                    .padding(.vertical, DesignTokens.Space.s4)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
 
                 Spacer()
             }
             .padding(.top, DesignTokens.Space.s2)
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Account settings")
-                    .textStyle(DesignTokens.TextStyles.title)
-                    .foregroundStyle(Theme.foreground)
-            }
+        .settingsTitle("Account settings")
+        .sheet(isPresented: $showPrivacySheet) {
+            PrivacyEditSheet()
         }
         .sheet(isPresented: $showDeleteConfirmation) {
             DeleteAccountConfirmationSheet(onDeleted: {
@@ -86,25 +47,6 @@ struct AccountSettingsView: View {
                 onAccountDeleted()
             })
         }
-    }
-
-    /// Writes through on every flip, optimistic with revert — there's no
-    /// Save button for a switch.
-    private var watermarkBinding: Binding<Bool> {
-        Binding(
-            get: { appState.isWatermarkEnabled },
-            set: { enabled in
-                watermarkErrorMessage = nil
-                Task {
-                    do {
-                        try await appState.setWatermarkEnabled(enabled)
-                    } catch {
-                        watermarkErrorMessage = "Couldn't save — please try again."
-                        Log.settings.error("Photo Fingerprint update failed: \(error, privacy: .public)")
-                    }
-                }
-            }
-        )
     }
 }
 

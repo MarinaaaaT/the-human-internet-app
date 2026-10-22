@@ -17,7 +17,7 @@ struct VerificationStatusSheet: View {
             VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
                 SheetGrabber()
 
-                Text("Verification status")
+                Text("Identity verification")
                     .textStyle(DesignTokens.TextStyles.title)
                     .foregroundStyle(Theme.foreground)
 
@@ -41,7 +41,7 @@ struct VerificationStatusSheet: View {
         case .unverified:
             return [
                 "Identity verification is 100% optional. You can capture and share verified photos without it.",
-                "If you would ever like to use the human internet to make claims about the ownership of your content, you will need to verify your identity. You can start that any time from Settings.",
+                "If you would ever like to use the human internet to make claims about the ownership of your content, you will need to verify your identity. You can start that any time from Profile settings.",
             ]
         case .inProgress:
             return [
