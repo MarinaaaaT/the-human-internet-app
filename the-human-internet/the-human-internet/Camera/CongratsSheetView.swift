@@ -12,21 +12,31 @@ struct CongratsSheetView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
             VStack(spacing: DesignTokens.Space.s6) {
-                // The success state is a brand moment: the mark, revealed.
-                BrandReveal {
-                    BrandMark(size: DesignTokens.Size.thumbnail)
-                }
-                Text("Congrats on your\nfirst verified photo!")
-                    .textStyle(DesignTokens.TextStyles.h2)
-                    .foregroundStyle(Theme.foreground)
-                    .multilineTextAlignment(.center)
+                // Not a Spacer: one sharing this VStack offered the bullets
+                // only part of the spare height, so each was cut to two lines
+                // with room left over. A scroll view gives the copy all the
+                // height it asks for, and only scrolls if a large text size
+                // genuinely outgrows the sheet.
+                ScrollView {
+                    VStack(spacing: DesignTokens.Space.s6) {
+                        // The success state is a brand moment: the mark, revealed.
+                        BrandReveal {
+                            BrandMark(size: DesignTokens.Size.thumbnail)
+                        }
+                        Text("Congrats on your\nfirst verified photo!")
+                            .textStyle(DesignTokens.TextStyles.h2)
+                            .foregroundStyle(Theme.foreground)
+                            .multilineTextAlignment(.center)
 
-                VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
-                    bullet("Your photos are currently public, which means anyone with the link can see them — including the robots. You can change this to humans only in your profile, so only people signed up to the human internet can verify photo contents.")
-                    bullet("All photos are also saved to your camera roll, so if you ever lose access to your account, you keep your photos.")
+                        VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
+                            bullet("All photos are saved to your camera roll. With or without your account, you'll still have them.")
+                            bullet("Every photo on our app carries proof — exactly what proof is up to you. Choose this in settings.")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
+                .scrollBounceBehavior(.basedOnSize)
 
-                Spacer()
                 PrimaryButton(title: "Got it") { dismiss() }
             }
             .padding(DesignTokens.Space.s6)

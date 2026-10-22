@@ -40,13 +40,9 @@ struct ProfileView: View {
 
                 if appState.photos.isEmpty {
                     Spacer()
-                    // Empty state: one doodle, two beats.
+                    // Empty state: the mark, two beats.
                     VStack(spacing: DesignTokens.Space.s4) {
-                        Image("DoodleHand")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: DesignTokens.Size.thumbnail, height: DesignTokens.Size.thumbnail)
-                            .accessibilityHidden(true)
+                        BrandMark(size: DesignTokens.Space.s12)
                         LabelValue(label: "No photos yet.", value: "Take your first one.")
                             .multilineTextAlignment(.center)
                     }

@@ -16,22 +16,16 @@ struct WelcomeView: View {
             Theme.background.ignoresSafeArea()
             VStack {
                 Spacer()
-                // A brand moment: the mark, then the words, faded in by
-                // opacity only (`BrandReveal`).
-                BrandReveal(index: 0) {
-                    BrandMark(size: DesignTokens.Size.thumbnail)
-                        .padding(.bottom, DesignTokens.Space.s6)
-                }
-                BrandReveal(index: 1) {
-                    VStack(spacing: DesignTokens.Space.s3) {
-                        Text("Welcome to")
-                            .textStyle(DesignTokens.TextStyles.h2)
-                            .foregroundStyle(Theme.foreground)
-                        Wordmark(height: DesignTokens.Space.s6)
-                    }
+                // A brand moment: the wordmark alone, faded in by opacity
+                // only (`BrandReveal`).
+                BrandReveal {
+                    Wordmark(height: DesignTokens.Space.s6)
                 }
                 Spacer()
-                SignInWithAppleButton(.signIn, onRequest: onConfigureRequest, onCompletion: onCompletion)
+                // Labelled for the first-timer, but it's the same call either
+                // way: `signInWithIdToken` creates the account or signs into
+                // an existing one, so a returning user is signed in by it too.
+                SignInWithAppleButton(.signUp, onRequest: onConfigureRequest, onCompletion: onCompletion)
                     .signInWithAppleButtonStyle(.black)
                     .frame(height: DesignTokens.Size.controlHeight)
                     .clipShape(Capsule())
