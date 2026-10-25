@@ -7,11 +7,14 @@ import SwiftUI
 
 /// Manually kicks off flows that would otherwise only run once, mid-onboarding
 /// — useful for testing without resetting a user's `onboarding_step` via SQL.
+/// Restart Onboarding is that SQL reset, done from here.
 struct FlowTriggersView: View {
     @Environment(AppState.self) private var appState
     @State private var isCreatingSession = false
     @State private var verificationURL: URL?
     @State private var errorMessage: String?
+    @State private var isConfirmingRestart = false
+    @State private var isRestartingOnboarding = false
 
     var body: some View {
         List {
@@ -40,6 +43,25 @@ struct FlowTriggersView: View {
                 .textStyle(DesignTokens.TextStyles.caption)
                 .foregroundStyle(Theme.mutedForeground)
             }
+
+            Section {
+                Button {
+                    isConfirmingRestart = true
+                } label: {
+                    HStack {
+                        Text("Restart Onboarding")
+                        if isRestartingOnboarding {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(isRestartingOnboarding)
+            } footer: {
+                Text("Starts again at profile setup, the step after Sign in with Apple. Photos, username and verification status are kept.")
+                    .textStyle(DesignTokens.TextStyles.caption)
+                    .foregroundStyle(Theme.mutedForeground)
+            }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
@@ -58,6 +80,15 @@ struct FlowTriggersView: View {
                 // stripe-identity-webhook Edge Function same as always.
                 StripeIdentityWebView(url: verificationURL, onComplete: {})
             }
+        }
+        .confirmationDialog(
+            "Restart onboarding?",
+            isPresented: $isConfirmingRestart,
+            titleVisibility: .visible
+        ) {
+            Button("Restart Onboarding") { restartOnboarding() }
+        } message: {
+            Text("You'll go through profile setup, identity verification and the welcome screen again. Nothing is deleted.")
         }
         .alert(
             "Something went wrong",
@@ -82,6 +113,21 @@ struct FlowTriggersView: View {
                 Log.devMenu.error("Creating identity verification session failed: \(error, privacy: .public)")
             }
             isCreatingSession = false
+        }
+    }
+
+    /// RootView closes the developer menu once `isOnboarded` flips, so there's
+    /// nothing to dismiss here on success.
+    private func restartOnboarding() {
+        isRestartingOnboarding = true
+        Task {
+            do {
+                try await appState.restartOnboarding()
+            } catch {
+                errorMessage = "Couldn't restart onboarding — please try again."
+                Log.devMenu.error("Restarting onboarding failed: \(error, privacy: .public)")
+            }
+            isRestartingOnboarding = false
         }
     }
 }

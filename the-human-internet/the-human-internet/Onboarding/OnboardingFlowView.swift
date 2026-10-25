@@ -103,7 +103,9 @@ struct OnboardingFlowView: View {
     /// client-side change to the column except `unverified -> in_progress`.
     /// So it asserts a resting state — it is not, and cannot become, a way
     /// to undo a real `verified`. That still needs the webhook or another
-    /// service_role caller.
+    /// service_role caller. (An onboarding restarted from the developer menu
+    /// can attempt it over `verified`; the revert holds, and `advance`
+    /// re-reads the column once onboarding completes.)
     private func skipVerification() {
         appState.user.verificationStatus = .unverified
         advance(to: .welcomeHuman)
@@ -121,6 +123,13 @@ struct OnboardingFlowView: View {
                 try await UserProfileRepository.upsert(appState.user)
                 if step == .completed {
                     appState.isOnboarded = true
+                    // An onboarding restarted from the developer menu can
+                    // reach the verify step already `verified` or
+                    // `in_progress`, and the trigger then silently reverts
+                    // whatever the step wrote. Read back what the server
+                    // kept, so the local copy doesn't claim less than the
+                    // truth. For a first-time user this changes nothing.
+                    await appState.refreshVerificationStatus()
                 } else {
                     path.append(step)
                 }

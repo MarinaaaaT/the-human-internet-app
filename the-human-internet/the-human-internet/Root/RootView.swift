@@ -57,6 +57,11 @@ struct RootView: View {
         .sheet(isPresented: $showDeveloperMenu) {
             DeveloperMenuView()
         }
+        // Flow Triggers' Restart Onboarding flips `isOnboarded` from inside
+        // the sheet. Close it, or onboarding starts hidden underneath it.
+        .onChange(of: appState.isOnboarded) { _, isOnboarded in
+            if !isOnboarded { showDeveloperMenu = false }
+        }
         .fullScreenCover(item: Binding(
             get: { appState.deepLinkedPhoto },
             set: { appState.deepLinkedPhoto = $0 }
