@@ -50,6 +50,11 @@ struct CameraCaptureView: View {
         }
         .task {
             await cameraSession.requestAuthorizationIfNeeded()
+            // The await hops off the main actor, so a quick switch away can
+            // run `onDisappear`'s stop() before this resumes. SwiftUI cancels
+            // the task then, and starting anyway would leave the camera
+            // running behind the Profile tab.
+            guard !Task.isCancelled else { return }
             cameraSession.start()
         }
         .onDisappear {
