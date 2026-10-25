@@ -105,8 +105,9 @@ struct PhotoVerificationView: View {
 
             // `.fit` (not `.fill`) — the source images are full-resolution camera
             // photos, and `.fill` scales up to cover, overflowing its bounds and
-            // painting over the header above it.
-            RemotePhotoImage(photo: photo, contentMode: .fit)
+            // painting over the header above it. Zoomable, as in photo detail:
+            // a closer look is half of deciding whether to believe a photo.
+            RemotePhotoImage(photo: photo, contentMode: .fit, isZoomable: true)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg, style: .continuous))
                 .padding(.horizontal, DesignTokens.Space.s6)
