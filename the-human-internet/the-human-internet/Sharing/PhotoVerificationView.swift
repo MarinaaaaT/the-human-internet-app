@@ -31,6 +31,9 @@ struct PhotoVerificationView: View {
     @State private var owner: PhotoOwnerProfile?
     @State private var isLoading = true
     @State private var showLearnMore = false
+    /// The photo is zoomed in, and the page around it has faded out to let
+    /// it take the whole screen.
+    @State private var isPhotoZoomed = false
 
     var body: some View {
         ZStack {
@@ -66,6 +69,9 @@ struct PhotoVerificationView: View {
                     }
                 }
             }
+            // Close included: a zoomed photo is zoomed back out first.
+            .fadesWhilePhotoZoomed(isPhotoZoomed)
+            .photoZoomLayer(isZoomed: $isPhotoZoomed, cornerRadius: DesignTokens.Radius.lg)
         }
         .sheet(isPresented: $showLearnMore) {
             PhotoVerificationInfoSheet()
