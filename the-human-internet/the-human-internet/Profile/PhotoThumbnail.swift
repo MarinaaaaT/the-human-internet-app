@@ -23,7 +23,7 @@ struct PhotoThumbnail: View {
     var onRetry: () -> Void = {}
 
     var body: some View {
-        RemotePhotoImage(photo: photo, isThumbnail: true, isProvisional: isProvisional)
+        RemotePhotoImage(photo: photo, isThumbnail: true, isProvisional: isProvisional, usesLocalCopy: true)
             // `.fit`, not `.fill`: in a LazyVGrid, the proposed height is
             // effectively unconstrained, and "fill a 1:1 box that's at
             // least as tall as infinity" is undefined — it silently fell
