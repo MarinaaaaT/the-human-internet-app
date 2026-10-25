@@ -182,9 +182,14 @@ enum PhotoUploadQueue {
     /// already made it into the DB, so anything still pending is seeded into
     /// `appState.photos` here as well — otherwise it wouldn't appear until
     /// its upload finishes.
+    ///
+    /// Also clears any other user's photos from `LocalPhotoStore`, which
+    /// this queue fills — the same leftovers `sweep` clears from the
+    /// manifest, but a cache can go at once rather than after a grace period.
     static func resumePendingUploads(userID: UUID, appState: AppState) {
         resetAutoRetry()
         sweep(currentUserID: userID)
+        LocalPhotoStore.removeAll(except: userID)
         for item in loadManifest() where item.userID == userID {
             if !appState.photos.contains(where: { $0.id == item.id }) {
                 let photo = VerifiedPhoto(id: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode)
@@ -253,9 +258,10 @@ enum PhotoUploadQueue {
     }
 
     /// Clears any local trace of a photo — its manifest entry, pending file,
-    /// and uploading/failed status — regardless of what stage its upload was
-    /// at. Used when deleting a photo so a still-uploading or previously
-    /// failed one can't resurface later via a resumed upload.
+    /// `LocalPhotoStore` copy, and uploading/failed status — regardless of
+    /// what stage its upload was at. Used when deleting a photo so a
+    /// still-uploading or previously failed one can't resurface later via a
+    /// resumed upload.
     ///
     /// Doesn't cancel an upload already in flight: that's a narrow, rare
     /// race (delete landing in the same instant as a background upload
@@ -264,19 +270,22 @@ enum PhotoUploadQueue {
     static func cancelPendingUpload(photoID: UUID, appState: AppState) {
         removeFromManifest(photoID: photoID)
         try? FileManager.default.removeItem(at: fileURL(for: photoID))
+        LocalPhotoStore.remove(photoID: photoID)
         appState.processingPhotoIDs.remove(photoID)
         appState.failedPhotoIDs.remove(photoID)
         appState.provisionalPhotoIDs.remove(photoID)
     }
 
-    /// Deletes every pending file and manifest entry owned by `userID`.
-    /// Called from `AppState.signOut()` so a signed-out session leaves no
-    /// un-uploaded photo behind for the next person to recover on a shared
-    /// device. Doesn't cancel an upload already in flight — same narrow,
-    /// rare race noted on `cancelPendingUpload`; its completion handler's
-    /// own manifest/file cleanup is a harmless no-op if this already ran.
+    /// Deletes every pending file and manifest entry owned by `userID`, and
+    /// every photo in `LocalPhotoStore`. Called from `AppState.signOut()` so
+    /// a signed-out session leaves no photo behind for the next person to
+    /// recover on a shared device. Doesn't cancel an upload already in
+    /// flight — same narrow, rare race noted on `cancelPendingUpload`; its
+    /// completion handler's own manifest/file cleanup is a harmless no-op if
+    /// this already ran.
     static func pruneOnSignOut(userID: UUID) {
         resetAutoRetry()
+        LocalPhotoStore.removeAll()
         var manifest = loadManifest()
         for item in manifest where item.userID == userID {
             try? FileManager.default.removeItem(at: fileURL(for: item.id))
@@ -386,7 +395,10 @@ enum PhotoUploadQueue {
                     hasOriginal: hasOriginal
                 )
                 removeFromManifest(photoID: photoID)
-                try? FileManager.default.removeItem(at: fileURL(for: photoID))
+                // The pending file is now exactly what's in Storage, so it
+                // moves into the store rather than being deleted — Profile
+                // and photo detail keep showing it without a download.
+                LocalPhotoStore.adopt(fileAt: fileURL(for: photoID), photoID: photoID, userID: userID)
                 appState.processingPhotoIDs.remove(photoID)
                 if let index = appState.photos.firstIndex(where: { $0.id == photoID }) {
                     appState.photos[index] = photo

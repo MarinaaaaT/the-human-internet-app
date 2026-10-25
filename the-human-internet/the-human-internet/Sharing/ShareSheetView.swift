@@ -264,6 +264,10 @@ struct ShareSheetView: View {
         if let local = PhotoUploadQueue.localImageData(for: photo.id) {
             return local
         }
+        // Only ever opened from photo detail, on the user's own photo.
+        if let stored = LocalPhotoStore.data(photoID: photo.id, userID: photo.userID) {
+            return stored
+        }
         return try await PhotoRepository.downloadImage(path: photo.storagePath)
     }
 

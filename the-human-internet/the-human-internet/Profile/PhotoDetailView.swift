@@ -177,7 +177,8 @@ struct PhotoDetailView: View {
                     photo: photo,
                     contentMode: .fit,
                     isProvisional: appState.provisionalPhotoIDs.contains(photo.id),
-                    isZoomable: isOpen
+                    isZoomable: isOpen,
+                    usesLocalCopy: true
                 )
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg, style: .continuous))
