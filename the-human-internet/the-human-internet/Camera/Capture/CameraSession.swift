@@ -33,6 +33,7 @@ final class CameraSession: NSObject {
     private(set) var isCameraAvailable = false
 
     let session = AVCaptureSession()
+    private let runner: CaptureSessionRunner
     private let photoOutput = AVCapturePhotoOutput()
     private var currentInput: AVCaptureDeviceInput?
     /// Keyed by `AVCapturePhotoSettings.uniqueID`, not a single stored
@@ -42,6 +43,7 @@ final class CameraSession: NSObject {
     private var captureContinuations: [Int64: CheckedContinuation<Data, Error>] = [:]
 
     override init() {
+        runner = CaptureSessionRunner(session: session)
         super.init()
         session.sessionPreset = .photo
     }
@@ -58,24 +60,18 @@ final class CameraSession: NSObject {
         }
     }
 
-    /// Safe to call repeatedly — no-ops once already running.
+    /// Safe to call repeatedly and interleaved with `stop()` in any order.
+    /// The session ends up in whichever state was asked for last. Don't gate
+    /// either on `session.isRunning` here: on the main thread it lags the
+    /// real state (BUG-9, see `CaptureSessionRunner`).
     func start() {
-        guard authorizationState == .authorized, !session.isRunning else { return }
+        guard authorizationState == .authorized else { return }
         configureSessionIfNeeded()
-        // Apple's documented guidance: startRunning() is blocking, so it
-        // must not run on the main thread.
-        let session = session
-        Task.detached(priority: .userInitiated) {
-            session.startRunning()
-        }
+        runner.setRunning(true)
     }
 
     func stop() {
-        guard session.isRunning else { return }
-        let session = session
-        Task.detached(priority: .userInitiated) {
-            session.stopRunning()
-        }
+        runner.setRunning(false)
     }
 
     func flipCamera() {
