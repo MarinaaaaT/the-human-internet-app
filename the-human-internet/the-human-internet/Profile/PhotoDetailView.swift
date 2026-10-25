@@ -22,6 +22,10 @@ struct PhotoDetailView: View {
     @State private var showAppPreview = false
     @State private var showWebPreview = false
 
+    /// The open photo is zoomed in, and everything else on screen has faded
+    /// out to let it take the whole screen.
+    @State private var isZoomed = false
+
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
     @State private var deleteError: String?
@@ -42,23 +46,32 @@ struct PhotoDetailView: View {
         let currentIndex = photos.firstIndex { $0.id == currentPhotoID }
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(spacing: 0) {
-                // The photo tracks the finger, like the grid does when it
-                // scrolls — that's the user moving it, not an animation, so
-                // it sits outside the opacity-only motion rule. Zooming is
-                // the same: a pinch or a double-tap on the open photo.
+            // The photo tracks the finger, like the grid does when it
+            // scrolls — that's the user moving it, not an animation, so it
+            // sits outside the opacity-only motion rule. Zooming is the
+            // same: a pinch or a double-tap on the open photo.
+            //
+            // The pager runs full screen, under the nav bar and the buttons,
+            // so a zoomed photo can take over all of it. Each page lays its
+            // photo out clear of both itself, from the insets read here — by
+            // a reader that keeps to the safe area, since one that ignores
+            // it reads them all as zero.
+            GeometryReader { proxy in
                 TabView(selection: $currentPhotoID) {
                     ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                         page(
                             for: photo,
                             isLoaded: currentIndex.map { Self.isWithinPreloadWindow(index, of: $0) } ?? false,
-                            isOpen: photo.id == currentPhotoID
+                            isOpen: photo.id == currentPhotoID,
+                            clearOf: proxy.safeAreaInsets
                         )
                         .tag(photo.id)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-
+                .ignoresSafeArea()
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 HStack(spacing: DesignTokens.Space.s3) {
                     SecondaryButton(title: "Preview") { showPreviewSheet = true }
                     PrimaryButton(title: "Share") { showShareSheet = true }
@@ -66,10 +79,16 @@ struct PhotoDetailView: View {
                 .disabled(currentPhoto == nil)
                 .padding(.horizontal, DesignTokens.Space.s6)
                 .padding(.bottom, DesignTokens.Space.s6)
+                .fadesWhilePhotoZoomed(isZoomed)
             }
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        // Like Photos' one-up view: no tab bar for a zoomed photo to stop at.
+        .toolbar(.hidden, for: .tabBar)
+        // Nothing to draw over the photo once it zooms up under the bar.
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(isZoomed)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -80,6 +99,7 @@ struct PhotoDetailView: View {
                 }
                 .accessibilityLabel("Delete photo")
                 .disabled(isDeleting || currentPhoto == nil)
+                .fadesWhilePhotoZoomed(isZoomed)
             }
         }
         .confirmationDialog(
@@ -143,8 +163,11 @@ struct PhotoDetailView: View {
     /// a full-resolution decode (~50MB for a 12MP capture), so this bounds
     /// memory at three of them however far someone swipes, rather than
     /// relying on how many pages the `TabView` happens to keep alive.
+    ///
+    /// The page runs under the nav bar and the buttons; `chrome` is how far
+    /// they reach in, so the photo rests where it would if it didn't.
     @ViewBuilder
-    private func page(for photo: VerifiedPhoto, isLoaded: Bool, isOpen: Bool) -> some View {
+    private func page(for photo: VerifiedPhoto, isLoaded: Bool, isOpen: Bool, clearOf chrome: EdgeInsets) -> some View {
         Group {
             if isLoaded {
                 // No separate brand-mark overlay: the photo carries its own,
@@ -162,9 +185,15 @@ struct PhotoDetailView: View {
                 Color.clear
             }
         }
-        .padding(.horizontal, DesignTokens.Space.s6)
-        .padding(.vertical, DesignTokens.Space.s3)
+        .padding(EdgeInsets(
+            top: chrome.top + DesignTokens.Space.s3,
+            leading: chrome.leading + DesignTokens.Space.s6,
+            bottom: chrome.bottom + DesignTokens.Space.s3,
+            trailing: chrome.trailing + DesignTokens.Space.s6
+        ))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .photoZoomLayer(isZoomed: $isZoomed, cornerRadius: DesignTokens.Radius.lg)
+        .ignoresSafeArea()
     }
 
     /// The open photo and one either side, so a swipe lands on a photo that
