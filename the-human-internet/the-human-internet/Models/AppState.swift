@@ -283,6 +283,30 @@ final class AppState {
         handleSessionInvalidated()
     }
 
+    /// The developer menu's Restart Onboarding: sends this account back to
+    /// the first screen after Sign in with Apple, as though it had just
+    /// signed up. Only `onboarding_step` changes. Photos, pending uploads,
+    /// the username and the icon all stay, so the profile step opens
+    /// prefilled and finishing lands back on the same account with nothing
+    /// missing. `verification_status` couldn't be reset even if this tried
+    /// (`prevent_self_verification_escalation` reverts it), which is why
+    /// `OnboardingFlowView` re-reads it on the way out.
+    ///
+    /// Persisted rather than local-only, so a force-quit midway resumes at
+    /// the right screen exactly as a real onboarding would. Optimistic,
+    /// revert-on-failure, like `setAudience(_:for:)`.
+    func restartOnboarding() async throws {
+        let previousStep = user.onboardingStep
+        user.onboardingStep = .profile
+        do {
+            try await UserProfileRepository.upsert(user)
+        } catch {
+            user.onboardingStep = previousStep
+            throw error
+        }
+        isOnboarded = false
+    }
+
     /// Pulls the current `verification_status` down onto `user`, leaving the
     /// rest of the row alone. Best-effort by design: this runs on foregrounding
     /// and on a timer, where a failed read should cost nothing and simply be
