@@ -45,12 +45,14 @@ struct PhotoDetailView: View {
             VStack(spacing: 0) {
                 // The photo tracks the finger, like the grid does when it
                 // scrolls — that's the user moving it, not an animation, so
-                // it sits outside the opacity-only motion rule.
+                // it sits outside the opacity-only motion rule. Zooming is
+                // the same: a pinch or a double-tap on the open photo.
                 TabView(selection: $currentPhotoID) {
                     ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                         page(
                             for: photo,
-                            isLoaded: currentIndex.map { Self.isWithinPreloadWindow(index, of: $0) } ?? false
+                            isLoaded: currentIndex.map { Self.isWithinPreloadWindow(index, of: $0) } ?? false,
+                            isOpen: photo.id == currentPhotoID
                         )
                         .tag(photo.id)
                     }
@@ -142,7 +144,7 @@ struct PhotoDetailView: View {
     /// memory at three of them however far someone swipes, rather than
     /// relying on how many pages the `TabView` happens to keep alive.
     @ViewBuilder
-    private func page(for photo: VerifiedPhoto, isLoaded: Bool) -> some View {
+    private func page(for photo: VerifiedPhoto, isLoaded: Bool, isOpen: Bool) -> some View {
         Group {
             if isLoaded {
                 // No separate brand-mark overlay: the photo carries its own,
@@ -151,7 +153,8 @@ struct PhotoDetailView: View {
                 RemotePhotoImage(
                     photo: photo,
                     contentMode: .fit,
-                    isProvisional: appState.provisionalPhotoIDs.contains(photo.id)
+                    isProvisional: appState.provisionalPhotoIDs.contains(photo.id),
+                    isZoomable: isOpen
                 )
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg, style: .continuous))

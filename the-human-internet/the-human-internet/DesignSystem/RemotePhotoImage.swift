@@ -28,6 +28,12 @@ struct RemotePhotoImage: View {
     /// view reloads to pick up the real watermarked bytes. Passed in rather
     /// than read from `AppState`, like the rest of this view's inputs.
     var isProvisional: Bool = false
+    /// Pinch or double-tap to zoom, for a `.fit` photo shown on its own
+    /// (photo detail and the in-app verification page). Turning it off drops
+    /// the zoom back to 1x — photo detail's pager turns it off for every page
+    /// but the open one, so a photo swiped away isn't still zoomed when
+    /// swiped back to.
+    var isZoomable: Bool = false
 
     @State private var image: UIImage?
     /// Black or white for the provisional mark over `image` — worked out once
@@ -54,15 +60,14 @@ struct RemotePhotoImage: View {
     var body: some View {
         Group {
             if isLoaded, let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: contentMode)
-                    // On the image itself, before any caller's clipping, so
-                    // the mark is placed against the whole photo even where
-                    // a `.fill` thumbnail crops it.
-                    .overlay {
-                        if isProvisional { ProvisionalWatermark(color: provisionalMarkColor) }
-                    }
+                if isZoomable {
+                    // Sized to the photo's own shape, as the image alone
+                    // would be, so turning zoom on or off moves nothing.
+                    ZoomableContainer { photoImage(image) }
+                        .aspectRatio(image.size, contentMode: contentMode)
+                } else {
+                    photoImage(image)
+                }
             } else if didFail {
                 placeholder {
                     Image(systemName: "photo")
@@ -107,6 +112,18 @@ struct RemotePhotoImage: View {
                 Log.photos.error("Download failed for \(photo.storagePath, privacy: .public): \(error, privacy: .public)")
             }
         }
+    }
+
+    private func photoImage(_ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .aspectRatio(contentMode: contentMode)
+            // On the image itself, before any caller's clipping, so the mark
+            // is placed against the whole photo even where a `.fill`
+            // thumbnail crops it — and zooms along with the photo.
+            .overlay {
+                if isProvisional { ProvisionalWatermark(color: provisionalMarkColor) }
+            }
     }
 
     /// Never caches a raw capture: the cache is keyed by storage path alone,
