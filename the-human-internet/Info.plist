@@ -38,7 +38,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>the human internet needs your camera to take live photos that can be verified as human-captured.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>the human internet saves a copy of every photo you take to your library, so it's never lost even if the upload doesn't finish.</string>
+	<string>the human internet saves a copy of every photo you take to your library, so it's never lost even if the upload doesn't finish, and saves photos you download there too.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -43,6 +43,10 @@ struct RemotePhotoImage: View {
     /// the network. The verification page leaves it off: it shows what
     /// everyone else is shown, so it always loads from Storage.
     var usesLocalCopy: Bool = false
+    /// Handed each image as it loads, for a caller that draws something of
+    /// its own from the same pixels — the verification page's frosted proof
+    /// blurs it.
+    var onLoad: ((UIImage) -> Void)? = nil
 
     @Environment(\.isInPhotoZoomLayer) private var isInPhotoZoomLayer
     @State private var image: UIImage?
@@ -106,6 +110,7 @@ struct RemotePhotoImage: View {
             if isThumbnail, !isProvisional, let cached = PhotoThumbnailCache.image(for: photo.storagePath) {
                 image = cached
                 loadedKey = loadKey
+                onLoad?(cached)
                 return
             }
 
@@ -160,6 +165,7 @@ struct RemotePhotoImage: View {
         }
         image = decoded
         loadedKey = key
+        if let decoded { onLoad?(decoded) }
         if isThumbnail, !isProvisional, let decoded {
             PhotoThumbnailCache.store(decoded, for: photo.storagePath)
         }

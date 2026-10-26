@@ -7,7 +7,7 @@ Read `DESIGN.md` before building or changing any UI. It explains the brand inten
 - `DesignTokens+Theme.swift`: `Theme.font(token)`, `.textStyle(token)`, `.symbolStyle(token)` (SF Symbols sized by the type scale), and the `.brandReveal` / `.brandBase` animations.
 - `Theme.swift`: color and CTA roles (primary, secondary, tertiary, destructive) and `.ctaStyle` / `.ctaIcon`, built from `DesignTokens.Colors`.
 - `Typography.swift`: `Theme.font(size:weight:)`. Use `Theme.font(DesignTokens.TextStyles.x)` or `.textStyle(...)`.
-- `Components.swift`: buttons (`PrimaryButton`, `SecondaryButton`, `TertiaryButton`, `CTAButton`) and fields. `BrandComponents.swift`: LabelValue, HumanCard, NotificationCard, ProofInfoCard, HighlightBadge, VerifiedBadge, HumanIconButton, BrandReveal.
+- `Components.swift`: buttons (`PrimaryButton`, `SecondaryButton`, `TertiaryButton`, `CTAButton`) and fields. `BrandComponents.swift`: LabelValue, HumanCard, NotificationCard, ProofInfoCard, ProofReveal, HighlightBadge, VerifiedBadge, HumanIconButton, BrandReveal.
 - `BrandMark.swift`: the spiral mark and the `Wordmark` (SVG assets `BrandMark`, `Wordmark`). `PhotoWatermarker.swift`: the watermark, a separate PNG shared with the signing Lambda.
 - `DesignSystemStyleguide.swift`: the living styleguide (`#Preview`, or Developer Menu → Design System Styleguide).
 
