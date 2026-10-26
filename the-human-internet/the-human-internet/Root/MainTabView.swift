@@ -21,7 +21,7 @@ struct MainTabView: View {
             }
             .tabItem {
                 Image(systemName: "person.crop.square")
-                Text("Profile")
+                Text("Gallery")
             }
         }
         .tint(Theme.foreground)

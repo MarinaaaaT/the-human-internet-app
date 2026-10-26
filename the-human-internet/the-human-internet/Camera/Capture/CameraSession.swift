@@ -17,7 +17,8 @@ enum CameraSessionError: Error {
 }
 
 /// Owns the live `AVCaptureSession` behind `CameraCaptureView`: authorization,
-/// session lifecycle, front/back toggle, and a single-shot photo capture.
+/// session lifecycle, front/back toggle, tap to focus, and a single-shot
+/// photo capture.
 @Observable
 final class CameraSession: NSObject {
     enum AuthorizationState {
@@ -36,6 +37,10 @@ final class CameraSession: NSObject {
     private let runner: CaptureSessionRunner
     private let photoOutput = AVCapturePhotoOutput()
     private var currentInput: AVCaptureDeviceInput?
+    /// Locking a device for configuration can block, so focusing stays off
+    /// the main thread. Serial, so a reset can't land under a newer tap.
+    private let focusQueue = DispatchQueue(label: "camera.focus", qos: .userInitiated)
+    private var subjectAreaObserver: NSObjectProtocol?
     /// Keyed by `AVCapturePhotoSettings.uniqueID`, not a single stored
     /// continuation — the shutter doesn't disable between shots (matching
     /// the system Camera app), so multiple captures can genuinely be in
@@ -46,6 +51,22 @@ final class CameraSession: NSObject {
         runner = CaptureSessionRunner(session: session)
         super.init()
         session.sessionPreset = .photo
+        // Only fires for a device that a tap locked (`CaptureFocus.lock`
+        // turns monitoring on), once the scene has moved on from that spot.
+        subjectAreaObserver = NotificationCenter.default.addObserver(
+            forName: AVCaptureDevice.subjectAreaDidChangeNotification,
+            object: nil,
+            queue: nil
+        ) { [focusQueue] notification in
+            guard let device = notification.object as? AVCaptureDevice else { return }
+            focusQueue.async { CaptureFocus.reset(device) }
+        }
+    }
+
+    deinit {
+        if let subjectAreaObserver {
+            NotificationCenter.default.removeObserver(subjectAreaObserver)
+        }
     }
 
     func requestAuthorizationIfNeeded() async {
@@ -72,11 +93,22 @@ final class CameraSession: NSObject {
 
     func stop() {
         runner.setRunning(false)
+        // Subject-area changes aren't reported while stopped, so a spot
+        // tapped before leaving the tab would otherwise still be held for
+        // whatever the camera points at on the way back.
+        resetFocus()
     }
 
     func flipCamera() {
         position = position == .back ? .front : .back
         configureInput(for: position)
+    }
+
+    /// Focuses and exposes on `devicePoint`, in the device's own space (see
+    /// `CaptureFocus`), and holds there until the scene changes.
+    func focus(at devicePoint: CGPoint) {
+        guard let device = currentInput?.device else { return }
+        focusQueue.async { CaptureFocus.lock(device, at: devicePoint) }
     }
 
     func capturePhoto() async throws -> Data {
@@ -128,6 +160,14 @@ final class CameraSession: NSObject {
         session.addInput(input)
         currentInput = input
         isCameraAvailable = true
+        // A device keeps its settings for the life of the process, so flipping
+        // back to a camera that was tapped would find it still held.
+        resetFocus()
+    }
+
+    private func resetFocus() {
+        guard let device = currentInput?.device else { return }
+        focusQueue.async { CaptureFocus.reset(device) }
     }
 }
 

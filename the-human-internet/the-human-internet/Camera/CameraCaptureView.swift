@@ -16,6 +16,11 @@ struct CameraCaptureView: View {
     @State private var shutterFlash = 0.0
     /// Bumped per capture; drives the shutter haptic.
     @State private var captureCount = 0
+    /// Where the latest tap to focus landed, in the preview's coordinates.
+    @State private var focusLocation: CGPoint?
+    @State private var focusIndicatorOpacity = 0.0
+    /// Bumped per tap to focus, so only the latest tap fades the square out.
+    @State private var focusTapCount = 0
 
     var body: some View {
         ZStack {
@@ -64,8 +69,18 @@ struct CameraCaptureView: View {
 
     private var cameraView: some View {
         ZStack {
-            CameraPreviewView(session: cameraSession.session)
+            CameraPreviewView(session: cameraSession.session) { location, devicePoint in
+                cameraSession.focus(at: devicePoint)
+                showFocusIndicator(at: location)
+            }
+            .ignoresSafeArea()
+
+            // Ignores the safe area exactly as the preview does, so the two
+            // share a frame and the tap's location needs no converting.
+            focusIndicator
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             // Sits above the preview but below the controls, so only the
             // viewfinder blinks — matching the system Camera app, where the
@@ -134,6 +149,19 @@ struct CameraCaptureView: View {
         }
     }
 
+    /// The square marking where a tap focused. White, like the other
+    /// controls over the camera feed.
+    @ViewBuilder
+    private var focusIndicator: some View {
+        if let focusLocation {
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.sm, style: .continuous)
+                .stroke(Theme.background, lineWidth: 1)
+                .frame(width: DesignTokens.Space.s16, height: DesignTokens.Space.s16)
+                .position(focusLocation)
+                .opacity(focusIndicatorOpacity)
+        }
+    }
+
     private var noCameraAvailableView: some View {
         VStack(spacing: DesignTokens.Space.s4) {
             Image(systemName: "camera.metering.unknown")
@@ -187,6 +215,25 @@ struct CameraCaptureView: View {
         } completion: {
             withAnimation(.easeOut(duration: 0.12)) {
                 shutterFlash = 0
+            }
+        }
+    }
+
+    /// Fades the focus square in where the preview was tapped, and out again
+    /// once the camera has had time to settle. A newer tap moves the square
+    /// and restarts its clock.
+    private func showFocusIndicator(at location: CGPoint) {
+        focusLocation = location
+        focusTapCount += 1
+        let tap = focusTapCount
+        withAnimation(.brandBase) {
+            focusIndicatorOpacity = 1
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard tap == focusTapCount else { return }
+            withAnimation(.brandBase) {
+                focusIndicatorOpacity = 0
             }
         }
     }
