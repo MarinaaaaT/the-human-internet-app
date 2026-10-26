@@ -147,7 +147,7 @@ extension View {
 
 /// The off-app destinations Settings links out to.
 private enum ExternalLink {
-    static let discord = URL(string: "https://discord.com/invite/SjYNad553")!
+    static let discord = URL(string: "https://discord.gg/SvB3BPFKDq")!
     static let feedback = URL(string: "https://thehumaninternet.featurebase.app/")!
 }
 
