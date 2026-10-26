@@ -100,6 +100,132 @@ struct ProofInfoCard: View {
     }
 }
 
+// MARK: - Proof reveal
+
+/// Where `ProofReveal`'s download button is up to.
+enum ProofDownloadStatus {
+    case ready
+    case downloading
+    /// Just saved: the button reads "Saved to Photos." for a moment.
+    case saved
+}
+
+/// The frosted proof over a verified photo, the app's half of the web's
+/// `ProofCard` reveal: a blurred copy of the photo fades in over the sharp
+/// one, washed to white toward the edges, with the proof set over it and a
+/// download button in the corner. Opacity only. The blur never animates; the
+/// pre-blurred layer fades in.
+///
+/// Sized to whatever it overlays, and draws only the reveal. The photo under
+/// it and the tap that shows and hides it are the caller's, and touches
+/// outside the button go straight through. For VoiceOver it stands in for the
+/// photo: a button that toggles the proof, with the download as an action.
+/// The proof itself is decorative, as on the web, so repeat anything that
+/// matters elsewhere on the screen.
+struct ProofReveal<Proof: View>: View {
+    let image: UIImage
+    @Binding var isShown: Bool
+    /// Nil for no download button.
+    var download: ProofDownloadStatus? = nil
+    var onDownload: () -> Void = {}
+    var cornerRadius: CGFloat = DesignTokens.Radius.lg
+    @ViewBuilder var proof: Proof
+
+    // ProofCard.tsx's `scale-110 blur-md` on the copy and `bg-radial` wash,
+    // which are Tailwind values rather than tokens on the web too. Scaling
+    // the copy past the edges keeps the blur's soft rim out of the frame.
+    private static var blurRadius: CGFloat { 12 }
+    private static var blurScale: CGFloat { 1.1 }
+    private static var wash: Gradient {
+        Gradient(stops: [
+            .init(color: DesignTokens.Colors.background.opacity(0), location: 0.3),
+            .init(color: DesignTokens.Colors.background.opacity(0.4), location: 0.6),
+            .init(color: DesignTokens.Colors.background.opacity(0.9), location: 0.85),
+        ])
+    }
+    /// CSS's default `farthest-corner`: the ellipse through the corners.
+    private static var washRadius: CGFloat { 0.5 * 2.0.squareRoot() }
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            frosted
+                .opacity(isShown ? 1 : 0)
+                .allowsHitTesting(false)
+            if let download {
+                downloadButton(download)
+                    .padding(DesignTokens.Space.s2)
+                    .opacity(isShown ? 1 : 0)
+                    // Hidden, a tap on the corner should show the proof.
+                    .allowsHitTesting(isShown)
+            }
+        }
+        .animation(.brandBase, value: isShown)
+        .animation(.brandBase, value: download)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Verified photo")
+        .accessibilityHint(isShown ? "Hides the proof." : "Shows the proof.")
+        .accessibilityAddTraits(isShown ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { isShown.toggle() }
+        .accessibilityActions {
+            if download != nil {
+                Button("Download photo", action: onDownload)
+            }
+        }
+    }
+
+    private var frosted: some View {
+        Color.clear
+            .overlay {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .scaleEffect(Self.blurScale)
+                    .blur(radius: Self.blurRadius, opaque: true)
+            }
+            .overlay {
+                EllipticalGradient(gradient: Self.wash, endRadiusFraction: Self.washRadius)
+            }
+            .overlay(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: DesignTokens.Space.s1) {
+                    proof
+                }
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(DesignTokens.Colors.foreground)
+                .padding(DesignTokens.Space.s4)
+                // Clear of the download button.
+                .padding(.trailing, download == nil ? 0 : DesignTokens.Size.iconButton)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func downloadButton(_ status: ProofDownloadStatus) -> some View {
+        switch status {
+        case .saved:
+            Text("Saved to Photos.")
+                .textStyle(DesignTokens.TextStyles.label)
+                .foregroundStyle(DesignTokens.Colors.foreground)
+                .padding(.horizontal, DesignTokens.Space.s4)
+                .frame(minHeight: DesignTokens.Size.iconButton)
+                .background(IconButtonSurface.media.background, in: Capsule())
+        case .ready, .downloading:
+            Button(action: onDownload) {
+                ZStack {
+                    if status == .downloading {
+                        ProgressView().tint(DesignTokens.Colors.foreground)
+                    } else {
+                        Image(systemName: "square.and.arrow.down")
+                            .symbolStyle(DesignTokens.TextStyles.title)
+                    }
+                }
+                .ctaIcon(.media)
+            }
+            .buttonStyle(.plain)
+            .disabled(status == .downloading)
+        }
+    }
+}
+
 // MARK: - Badges
 
 /// Count/streak badge, e.g. "3x". The ONLY place the blue highlight is used.

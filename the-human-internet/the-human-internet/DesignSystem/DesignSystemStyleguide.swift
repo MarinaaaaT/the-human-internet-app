@@ -84,6 +84,9 @@ struct DesignSystemStyleguide: View {
                 }
 
                 section("Cards") {
+                    Text("ProofReveal · tap the photo (300ms)").textStyle(DesignTokens.TextStyles.caption)
+                        .foregroundStyle(DesignTokens.Colors.mutedForeground)
+                    ProofRevealSample()
                     ProofInfoCard(device: "iPhone 16 Pro Max", date: "September 18, 2026", time: "3:42 PM",
                                   os: "iOS 19.0.1", place: "San Francisco, CA", coordinates: "37.7749° N, 122.4194° W")
                     NotificationCard(label: "Photo shared", value: "They know it's you.") {
@@ -141,6 +144,28 @@ struct DesignSystemStyleguide: View {
             Text(name).textStyle(DesignTokens.TextStyles.caption)
                 .foregroundStyle(DesignTokens.Colors.mutedForeground)
             Text(sample).textStyle(token).foregroundStyle(color)
+        }
+    }
+
+    /// The verification page's frosted proof, over the retired camera stand-in.
+    private struct ProofRevealSample: View {
+        @State private var isShown = false
+
+        var body: some View {
+            if let image = UIImage(named: "CaptureStandIn") {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .overlay {
+                        ProofReveal(image: image, isShown: $isShown, download: .ready) {
+                            Text(verbatim: "@samreyes")
+                            Text(verbatim: "Sam Reyes")
+                            Text(verbatim: "September 18, 2026")
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg, style: .continuous))
+                    .onTapGesture { isShown.toggle() }
+            }
         }
     }
 

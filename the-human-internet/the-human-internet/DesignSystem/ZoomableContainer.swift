@@ -15,7 +15,11 @@ extension View {
     /// from exactly where the `RemotePhotoImage` was laid out; that view keeps
     /// the photo's place in the layout and draws nothing. Content over the
     /// photo's path should `fadesWhilePhotoZoomed(isZoomed)`.
-    func photoZoomLayer(isZoomed: Binding<Bool>, cornerRadius: CGFloat) -> some View {
+    ///
+    /// `onTap` is a single tap on the photo at 1x — the touch reaches this
+    /// layer, not the view laid out in the photo's place. It waits out a
+    /// possible double tap first, as in Photos, so zooming never fires it.
+    func photoZoomLayer(isZoomed: Binding<Bool>, cornerRadius: CGFloat, onTap: (() -> Void)? = nil) -> some View {
         environment(\.isInPhotoZoomLayer, true)
             .backgroundPreferenceValue(ZoomablePhotoPreferenceKey.self) { photo in
                 GeometryReader { proxy in
@@ -23,7 +27,8 @@ extension View {
                         ZoomableContainer(
                             restingRect: proxy[photo.restingBounds],
                             cornerRadius: cornerRadius,
-                            onZoomChange: { isZoomed.wrappedValue = $0 }
+                            onZoomChange: { isZoomed.wrappedValue = $0 },
+                            onTap: onTap
                         ) {
                             LoadedPhoto(image: photo.image, isProvisional: photo.isProvisional, markColor: photo.markColor)
                         }
@@ -81,17 +86,20 @@ struct ZoomableContainer<Content: View>: UIViewRepresentable {
     let restingRect: CGRect
     let cornerRadius: CGFloat
     let onZoomChange: (Bool) -> Void
+    let onTap: (() -> Void)?
     private let content: Content
 
     init(
         restingRect: CGRect,
         cornerRadius: CGFloat,
         onZoomChange: @escaping (Bool) -> Void,
+        onTap: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.restingRect = restingRect
         self.cornerRadius = cornerRadius
         self.onZoomChange = onZoomChange
+        self.onTap = onTap
         self.content = content()
     }
 
@@ -111,6 +119,7 @@ struct ZoomableContainer<Content: View>: UIViewRepresentable {
     func updateUIView(_ scrollView: ZoomingScrollView, context: Context) {
         context.coordinator.rootView = content
         scrollView.onZoomChange = onZoomChange
+        scrollView.onTap = onTap
         scrollView.cornerRadius = cornerRadius
         scrollView.restingRect = restingRect
     }
@@ -134,8 +143,13 @@ final class ZoomingScrollView: UIScrollView, UIScrollViewDelegate {
         didSet { updateCornerRadius() }
     }
     var onZoomChange: ((Bool) -> Void)?
+    /// A single tap on the zoomed view at 1x. Nil leaves single taps alone.
+    var onTap: (() -> Void)? {
+        didSet { singleTap.isEnabled = onTap != nil }
+    }
 
     private let zoomedView: UIView
+    private let singleTap = UITapGestureRecognizer()
     /// The `restingRect` the zoomed view is currently laid out for.
     private var settledRect: CGRect?
     private var isZoomed = false
@@ -158,6 +172,11 @@ final class ZoomingScrollView: UIScrollView, UIScrollViewDelegate {
         let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
         doubleTap.numberOfTapsRequired = 2
         addGestureRecognizer(doubleTap)
+
+        singleTap.addTarget(self, action: #selector(handleSingleTap(_:)))
+        singleTap.require(toFail: doubleTap)
+        singleTap.isEnabled = false
+        addGestureRecognizer(singleTap)
     }
 
     required init?(coder: NSCoder) {
@@ -247,6 +266,13 @@ final class ZoomingScrollView: UIScrollView, UIScrollViewDelegate {
         // At 1x the rest of the screen is the page around the photo.
         guard zoomedView.bounds.contains(point) else { return }
         zoom(to: Self.doubleTapZoomRect(centeredOn: point, viewport: bounds.size), animated: animated)
+    }
+
+    /// Only at 1x, and only on the photo itself: zoomed, the page that tap
+    /// would act on has faded away.
+    @objc private func handleSingleTap(_ recognizer: UITapGestureRecognizer) {
+        guard !isZoomed, zoomedView.bounds.contains(recognizer.location(in: zoomedView)) else { return }
+        onTap?()
     }
 
     /// The region of the zoomed view, in its own unzoomed coordinates, that
