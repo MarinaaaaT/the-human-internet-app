@@ -34,10 +34,6 @@ struct ProfileView: View {
                     PendingPhotosBanner()
                 }
 
-                Text("Privacy: \(appState.user.privacy.rawValue)")
-                    .textStyle(DesignTokens.TextStyles.label)
-                    .foregroundStyle(Theme.mutedForeground)
-
                 if appState.photos.isEmpty {
                     Spacer()
                     // Empty state: the mark, two beats.

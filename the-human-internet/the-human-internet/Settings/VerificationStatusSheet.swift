@@ -12,28 +12,23 @@ struct VerificationStatusSheet: View {
     let status: VerificationStatus
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
-                SheetGrabber()
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
+            SheetGrabber()
 
-                Text("Identity verification")
-                    .textStyle(DesignTokens.TextStyles.title)
-                    .foregroundStyle(Theme.foreground)
+            Text("Identity verification")
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.foreground)
 
-                ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
-                    Text(paragraph)
-                        .textStyle(DesignTokens.TextStyles.body)
-                        .foregroundStyle(Theme.mutedForeground)
-                }
-
-                Spacer()
+            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
+                Text(paragraph)
+                    .textStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(DesignTokens.Space.s6)
-            .padding(.top, DesignTokens.Space.s4)
         }
-        .presentationDetents([.fraction(0.4)])
-        .presentationBackground(Theme.background)
+        .padding(DesignTokens.Space.s6)
+        .padding(.top, DesignTokens.Space.s4)
+        .fittedSheet()
     }
 
     private var paragraphs: [String] {

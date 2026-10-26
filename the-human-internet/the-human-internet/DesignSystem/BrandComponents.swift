@@ -113,8 +113,9 @@ enum ProofDownloadStatus {
 /// The frosted proof over a verified photo, the app's half of the web's
 /// `ProofCard` reveal: a blurred copy of the photo fades in over the sharp
 /// one, washed to white toward the edges, with the proof set over it and a
-/// download button in the corner. Opacity only. The blur never animates; the
-/// pre-blurred layer fades in.
+/// download icon in the corner — a bare glyph on the blur, as on the web, not
+/// a filled button. Opacity only. The blur never animates; the pre-blurred
+/// layer fades in.
 ///
 /// Sized to whatever it overlays, and draws only the reveal. The photo under
 /// it and the tap that shows and hides it are the caller's, and touches
@@ -192,8 +193,8 @@ struct ProofReveal<Proof: View>: View {
                 .textStyle(DesignTokens.TextStyles.title)
                 .foregroundStyle(DesignTokens.Colors.foreground)
                 .padding(DesignTokens.Space.s4)
-                // Clear of the download button.
-                .padding(.trailing, download == nil ? 0 : DesignTokens.Size.iconButton)
+                // Clear of the download icon.
+                .padding(.trailing, download == nil ? 0 : DesignTokens.Size.minTouch)
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
@@ -205,9 +206,8 @@ struct ProofReveal<Proof: View>: View {
             Text("Saved to Photos.")
                 .textStyle(DesignTokens.TextStyles.label)
                 .foregroundStyle(DesignTokens.Colors.foreground)
-                .padding(.horizontal, DesignTokens.Space.s4)
-                .frame(minHeight: DesignTokens.Size.iconButton)
-                .background(IconButtonSurface.media.background, in: Capsule())
+                .padding(.horizontal, DesignTokens.Space.s2)
+                .frame(minHeight: DesignTokens.Size.minTouch)
         case .ready, .downloading:
             Button(action: onDownload) {
                 ZStack {
@@ -218,7 +218,9 @@ struct ProofReveal<Proof: View>: View {
                             .symbolStyle(DesignTokens.TextStyles.title)
                     }
                 }
-                .ctaIcon(.media)
+                .foregroundStyle(DesignTokens.Colors.foreground)
+                .frame(width: DesignTokens.Size.minTouch, height: DesignTokens.Size.minTouch)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(status == .downloading)

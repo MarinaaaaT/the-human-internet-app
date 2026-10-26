@@ -6,8 +6,8 @@
 import SwiftUI
 
 /// The brand mark drawn *over* a photo whose pixels don't carry it yet — a
-/// raw capture still waiting on the watermark to be burned in (on device or,
-/// with `server_side_watermark`, by the signing Lambda). Same artwork
+/// raw capture still waiting on the signing Lambda to burn the watermark in
+/// (or, for the developer tools' Skip C2PA, `PhotoWatermarker`). Same artwork
 /// (`PhotoWatermarker.markAssetName`), same placement
 /// (`PhotoWatermarker.markRect`) as the burned-in mark, so when the real
 /// watermarked photo replaces the raw one, nothing appears to move.

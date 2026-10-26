@@ -19,10 +19,22 @@ extension View {
     /// `onTap` is a single tap on the photo at 1x — the touch reaches this
     /// layer, not the view laid out in the photo's place. It waits out a
     /// possible double tap first, as in Photos, so zooming never fires it.
-    func photoZoomLayer(isZoomed: Binding<Bool>, cornerRadius: CGFloat, onTap: (() -> Void)? = nil) -> some View {
+    ///
+    /// Inside a `ScrollView`, apply this to the scroll content (a scroll view
+    /// swallows touches meant for a layer behind it) and pass `viewport`, the
+    /// scroll view's `ScrollGeometry.visibleRect`: the layer then spans only
+    /// what's on screen, wherever the content has scrolled to, so a zoomed
+    /// photo still takes over exactly the screen. Without it the layer spans
+    /// this view's own frame, safe areas included.
+    func photoZoomLayer(
+        isZoomed: Binding<Bool>,
+        cornerRadius: CGFloat,
+        viewport: CGRect? = nil,
+        onTap: (() -> Void)? = nil
+    ) -> some View {
         environment(\.isInPhotoZoomLayer, true)
-            .backgroundPreferenceValue(ZoomablePhotoPreferenceKey.self) { photo in
-                GeometryReader { proxy in
+            .backgroundPreferenceValue(ZoomablePhotoPreferenceKey.self, alignment: .topLeading) { photo in
+                let layer = GeometryReader { proxy in
                     if let photo {
                         ZoomableContainer(
                             restingRect: proxy[photo.restingBounds],
@@ -37,7 +49,13 @@ extension View {
                         .onDisappear { isZoomed.wrappedValue = false }
                     }
                 }
-                .ignoresSafeArea()
+                if let viewport {
+                    layer
+                        .frame(width: viewport.width, height: viewport.height)
+                        .offset(x: viewport.minX, y: viewport.minY)
+                } else {
+                    layer.ignoresSafeArea()
+                }
             }
     }
 

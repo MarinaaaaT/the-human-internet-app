@@ -113,6 +113,33 @@ struct SheetGrabber: View {
     }
 }
 
+extension View {
+    /// Presents this as a sheet exactly as tall as it is, so its text is
+    /// never cut off: a fixed detent that fits the copy at one text size
+    /// clips it at a larger one, or once the copy grows. Scrolls if it's
+    /// ever taller than the screen. For sheets that are just text.
+    func fittedSheet() -> some View {
+        modifier(FittedSheet())
+    }
+}
+
+private struct FittedSheet: ViewModifier {
+    /// The content's own height, once measured. The detent `.height` takes
+    /// excludes the bottom safe area, so it's exactly this.
+    @State private var height: CGFloat?
+
+    func body(content: Content) -> some View {
+        ScrollView {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .presentationDetents([height.map { .height($0) } ?? .medium])
+        .presentationBackground(Theme.background)
+    }
+}
+
 struct RadioRow: View {
     let title: String
     var subtitle: String?

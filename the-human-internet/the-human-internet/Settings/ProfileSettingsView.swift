@@ -37,10 +37,12 @@ struct ProfileSettingsView: View {
                     }
                     Divider().overlay(Theme.border)
 
-                    SettingsRow(title: "Identity verification", value: statusLabel, systemImage: "info.circle") {
-                        showVerificationInfo = true
+                    if showsVerificationStatus {
+                        SettingsRow(title: "Identity verification", value: statusLabel, systemImage: "info.circle") {
+                            showVerificationInfo = true
+                        }
+                        Divider().overlay(Theme.border)
                     }
-                    Divider().overlay(Theme.border)
 
                     if appState.canCustomizeVerificationPage {
                         SettingsRow(title: "Full name", value: fullNameLabel, systemImage: "info.circle") {
@@ -103,27 +105,30 @@ struct ProfileSettingsView: View {
 
     // MARK: - Not yet verified
 
-    /// What verifying would unlock. Only while the verification-page flag is
-    /// on, since that's what it describes — with it off there's nothing to
-    /// promise.
+    /// "ID Verification in Settings" off hides the row too, but only from an
+    /// `unverified` user: with nothing to act on, "Not verified" would only
+    /// point at a door that's shut. Any other status stays — it's true and
+    /// useful whether or not they can act on it.
+    private var showsVerificationStatus: Bool {
+        appState.isIdentityVerificationInSettingsEnabled || appState.user.verificationStatus != .unverified
+    }
+
+    /// What verifying would unlock. Pitches the same thing the button below
+    /// offers, so it goes with the same flag.
     private var showsVerificationPitch: Bool {
-        appState.isCustomVerificationPagesEnabled && appState.user.verificationStatus != .verified
+        appState.isIdentityVerificationInSettingsEnabled && appState.user.verificationStatus != .verified
     }
 
     /// Verification is optional and skippable during onboarding, so this is
     /// the way back to it — gated twice, for two unrelated reasons:
     ///
-    /// - The flag is a kill switch, and it has to close every door at once.
-    ///   With "Show Stripe Identity Verification" off, onboarding doesn't
-    ///   offer the step, so Settings must not quietly remain a way in. Only
-    ///   the *action* goes: the Identity verification row above still
-    ///   reports whatever status the user already has, which stays true and
-    ///   useful regardless of whether they can act on it.
+    /// - "ID Verification in Settings" is this door's own switch, separate
+    ///   from onboarding's, so either can be shut without the other.
     /// - Only offered to someone who hasn't started — an in-progress user is
     ///   waiting on the webhook, and restarting would just orphan their
     ///   session.
     private var canStartVerification: Bool {
-        appState.isStripeIdentityVerificationEnabled && appState.user.verificationStatus == .unverified
+        appState.isIdentityVerificationInSettingsEnabled && appState.user.verificationStatus == .unverified
     }
 
     private var verificationPitch: some View {

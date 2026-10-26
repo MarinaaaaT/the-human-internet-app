@@ -74,11 +74,9 @@ struct StripeIdentityWebView: View {
 ///
 /// Deliberately split out of the delegate that uses it so the allowlist is
 /// unit-testable without a live Stripe session. That matters more here than
-/// it normally would: the Stripe account's Identity product isn't activated
-/// yet and the `stripe_identity_verification` flag is off, so this policy
-/// cannot currently be exercised by hand at all — `StripeIdentityHostPolicyTests`
-/// is the only thing between a typo here and a screen that silently refuses
-/// to load.
+/// it normally would: exercising it by hand means a real verification, so
+/// `StripeIdentityHostPolicyTests` is the only thing that runs every time
+/// between a typo here and a screen that silently refuses to load.
 enum StripeIdentityHostPolicy {
     private static let allowedHost = "verify.stripe.com"
 

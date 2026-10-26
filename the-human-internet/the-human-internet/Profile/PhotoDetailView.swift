@@ -159,10 +159,12 @@ struct PhotoDetailView: View {
     }
 
     /// Only pages inside the preload window get a `RemotePhotoImage`; the
-    /// rest are empty until a swipe brings them close. Each loaded page holds
-    /// a full-resolution decode (~50MB for a 12MP capture), so this bounds
-    /// memory at three of them however far someone swipes, rather than
-    /// relying on how many pages the `TabView` happens to keep alive.
+    /// rest are empty until a swipe brings them close. That bounds memory at
+    /// three decodes however far someone swipes, rather than relying on how
+    /// many pages the `TabView` happens to keep alive. Only the open page,
+    /// the zoomable one, is decoded at full resolution (~50MB for a 12MP
+    /// capture); its neighbours are screen-sized, so they're cheap to slide
+    /// on screen mid-swipe — see `RemotePhotoImage.Resolution`.
     ///
     /// The page runs under the nav bar and the buttons; `chrome` is how far
     /// they reach in, so the photo rests where it would if it didn't.

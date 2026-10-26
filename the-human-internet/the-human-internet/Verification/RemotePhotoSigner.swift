@@ -20,13 +20,13 @@ enum RemotePhotoSignerError: Error {
 /// can call but never see the material of. There's no on-device fallback.
 ///
 /// Two entry points, one per `PhotoUploadQueue` path:
-/// - `signCapture` — the capture pipeline (`server_side_watermark` on): the
-///   raw capture goes up; the server signs it as a `digitalCapture`, burns
-///   the brand mark into *that*, signs the result with the capture as its
-///   C2PA parent ingredient, keeps the signed capture in `photo-originals`,
-///   and returns the watermarked photo.
-/// - `sign` — the older path: bytes already watermarked on device, signed
-///   as-is as a `digitalCapture`.
+/// - `signCapture` — the capture pipeline: the raw capture goes up; the
+///   server signs it as a `digitalCapture`, burns the brand mark into
+///   *that*, signs the result with the capture as its C2PA parent
+///   ingredient, keeps the signed capture in `photo-originals`, and returns
+///   the watermarked photo.
+/// - `sign` — Photo Fingerprint off: the raw capture, signed as-is as a
+///   `digitalCapture`, with no mark.
 ///
 /// Each request carries an App Attest assertion over the exact bytes sent,
 /// when this device can produce one — see `AppAttestService`.
