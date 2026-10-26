@@ -19,12 +19,12 @@ import Supabase
 /// assertion from that key over the **exact bytes being signed**, sent as two
 /// headers the Edge Function verifies before signing anything.
 ///
-/// **This never blocks an upload on its own.** Anything that goes wrong here —
-/// no App Attest on this device (the Simulator), Apple's service unreachable,
-/// the backend functions not deployed yet — leaves the request unattested,
-/// and `sign-photo` decides: it signs and logs while the `require_app_attest`
-/// flag is off for this user, and refuses once it's on. So the enforcement
-/// switch lives entirely server-side, like every other one this app has.
+/// **This never fails an upload on its own.** Anything that goes wrong here —
+/// no App Attest on this device (the Simulator), Apple's service unreachable
+/// — leaves the request unattested, and `sign-photo` decides. It refuses
+/// every unattested request (`attestation_required`; this was the
+/// `require_app_attest` flag until 2026-10-25), so such an upload fails and
+/// retries — which is why nothing uploads from the Simulator.
 ///
 /// What it proves is the request's origin, not the pixels': a jailbroken
 /// device can still hook the capture path. See the backend's

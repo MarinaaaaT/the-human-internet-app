@@ -18,11 +18,10 @@ enum PhotoWatermarkerError: Error {
 /// Deliberately not applied to the copy saved to the user's own device
 /// Photos library, which stays an untouched copy of exactly what they shot.
 ///
-/// **No longer the main path.** With `server_side_watermark` on, the signing
-/// Lambda burns the mark in (`aws-signing-lambda/src/watermark.rs` in the
-/// backend repo) so the capture can be signed first and kept as the
-/// watermarked photo's C2PA ingredient. This stays for the flag-off path and
-/// for the developer tools' Skip C2PA.
+/// **No longer the main path.** The signing Lambda burns the mark in
+/// (`aws-signing-lambda/src/watermark.rs` in the backend repo) so the capture
+/// can be signed first and kept as the watermarked photo's C2PA ingredient.
+/// This stays only for the developer tools' Skip C2PA.
 ///
 /// **The mark is an image**, the `BrandMarkWatermark` image set — the spiral
 /// "fingerprint", the same PNG as the Lambda's `assets/brand-mark.png` and

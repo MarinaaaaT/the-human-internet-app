@@ -363,10 +363,9 @@ struct VerifiedIdentity: Hashable {
 /// granted to `authenticated` only.
 ///
 /// Every gate lives in that function: `display_name` arrives non-nil only
-/// when the owner is verified, has `show_identity` on, and is covered by the
-/// `custom_verification_pages` flag; `socialLinks` is empty unless verified
-/// and flagged. Nothing here is re-decided client-side, exactly as on the
-/// website.
+/// when the owner is verified and has `show_identity` on; `socialLinks` is
+/// empty unless verified. Nothing here is re-decided client-side, exactly as
+/// on the website.
 ///
 /// It has no privacy gate, unlike the web RPC — per the PRD, signed-in app
 /// users see full contents whether the owner is `Public` or `Humans Only`.

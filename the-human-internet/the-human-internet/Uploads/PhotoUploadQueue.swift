@@ -10,23 +10,20 @@ import Foundation
 /// done) and the actual Supabase upload in the background — the capture
 /// flow never blocks on any of that.
 ///
-/// Watermarking + signing takes one of two paths, chosen per photo when it's
-/// processed:
-/// - **capture pipeline** (`server_side_watermark` on): the raw capture goes
-///   to `sign-photo`, which signs it, burns the mark into that signed
-///   capture server-side and signs the result with the capture as its C2PA
-///   parent ingredient — keeping the signed capture in `photo-originals` —
-///   and returns the watermarked photo;
-/// - **on-device watermark** (flag off, the older path): `PhotoWatermarker`
-///   burns the mark in here and `sign-photo` signs those bytes as-is.
-/// Either way what gets uploaded to `photos` is the watermarked photo, and
+/// Watermarking + signing is the **capture pipeline**: the raw capture goes
+/// to `sign-photo`, which signs it, burns the mark into that signed capture
+/// server-side and signs the result with the capture as its C2PA parent
+/// ingredient — keeping the signed capture in `photo-originals` — and
+/// returns the watermarked photo. That's what gets uploaded to `photos`, and
 /// until it exists the UI draws a matching mark over the raw capture — see
-/// `AppState.provisionalPhotoIDs`.
+/// `AppState.provisionalPhotoIDs`. (It was the `server_side_watermark` flag
+/// until 2026-10-25; the on-device watermark it replaced survives only for
+/// the developer tools' unsigned uploads.)
 ///
 /// Unless the user has turned **Photo Fingerprint** off
-/// (`AppState.isWatermarkEnabled`): then neither path runs, the raw capture
-/// is signed as-is via `RemotePhotoSigner.sign`, and no provisional mark is
-/// drawn.
+/// (`AppState.isWatermarkEnabled`): then the pipeline doesn't run, the raw
+/// capture is signed as-is via `RemotePhotoSigner.sign`, and no provisional
+/// mark is drawn.
 ///
 /// The on-disk manifest is the durable source of truth for "what's still
 /// pending"; `AppState.photos`/`processingPhotoIDs`/`failedPhotoIDs` are just
@@ -345,16 +342,16 @@ enum PhotoUploadQueue {
                     await acquireProcessingSlot()
                     defer { releaseProcessingSlot() }
 
-                    // Both paths are decided per photo at processing time,
-                    // so a resumed upload follows whatever the switches say
-                    // now. Both put the mark in the pixels *before* the final
+                    // Decided per photo at processing time, so a resumed
+                    // upload follows whatever the switches say now. The
+                    // mark goes into the pixels *before* the final
                     // signature, so the C2PA hash binding covers the exact
                     // bytes that get uploaded and shared.
                     let processedData: Data
                     var hasOriginal = false
                     if !appState.isWatermarkEnabled {
-                        // Photo Fingerprint off: no mark, on either path. The
-                        // raw capture is signed exactly as shot — the same
+                        // Photo Fingerprint off: no mark. The raw capture is
+                        // signed exactly as shot — the same
                         // `digitalCapture` claim, with nothing burned in — or,
                         // with C2PA skipped as well, uploaded untouched.
                         processedData = appState.isC2PASigningSkipped
@@ -369,12 +366,9 @@ enum PhotoUploadQueue {
                         // one until someone reads its bytes. Admin-only; see
                         // `AppState.isC2PASigningSkipped`.
                         processedData = try await PhotoWatermarker.watermark(imageData: imageData)
-                    } else if appState.isServerSideWatermarkEnabled {
+                    } else {
                         processedData = try await RemotePhotoSigner.signCapture(rawData: imageData, photoID: photoID)
                         hasOriginal = true
-                    } else {
-                        let watermarkedData = try await PhotoWatermarker.watermark(imageData: imageData)
-                        processedData = try await RemotePhotoSigner.sign(imageData: watermarkedData)
                     }
                     // No `await` from here to the provisional removal: a view
                     // that reloads on that change must find the final bytes

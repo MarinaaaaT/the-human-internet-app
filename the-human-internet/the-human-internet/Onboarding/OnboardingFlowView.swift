@@ -40,11 +40,11 @@ struct OnboardingFlowView: View {
                     }
                 case .verify:
                     // Admin-controlled (developer menu > Feature Flags >
-                    // "Show Stripe Identity Verification"). Off ⇒ the step
+                    // "ID Verification in Onboarding"). Off ⇒ the step
                     // isn't shown at all and `skipVerification` takes the
                     // user through it on exactly the terms a manual Skip
                     // would have.
-                    if appState.isStripeIdentityVerificationEnabled {
+                    if appState.isIdentityVerificationInOnboardingEnabled {
                         // Both paths advance: verification is optional, so
                         // skipping is a legitimate way through the step. The
                         // difference is what `verificationStatus` is left at,

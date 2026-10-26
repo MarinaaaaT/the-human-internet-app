@@ -18,7 +18,11 @@ import SwiftUI
 ///
 /// Tapping the photo shows the website's frosted proof over it (`ProofReveal`)
 /// — who took it, their verified name when published, and when — with a
-/// download button that saves the photo to Photos.
+/// download icon that saves the photo to Photos. That's the only place those
+/// are shown: under the photo there are just the social handles.
+///
+/// The page scrolls rather than fitting the screen, so the photo always
+/// spans the card above it, however many handles follow it.
 ///
 /// The two pages differ in exactly one way, deliberately. This one has no
 /// privacy gate: per the PRD a signed-in app user sees full contents whether
@@ -45,45 +49,34 @@ struct PhotoVerificationView: View {
     @State private var loadedImage: UIImage?
     @State private var downloadStatus: ProofDownloadStatus = .ready
     @State private var downloadError: String?
+    /// What the scroll view has on screen, in its content's coordinates —
+    /// where the zoom layer has to be for a zoomed photo to fill the screen.
+    @State private var viewport: CGRect = .zero
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
-                HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .symbolStyle(DesignTokens.TextStyles.title)
-                            .ctaIcon()
-                    }
-                    .accessibilityLabel("Close")
-                    Spacer()
-                }
-                .padding(.horizontal, DesignTokens.Space.s6)
-                .padding(.top, DesignTokens.Space.s3)
-
-                Group {
-                    if isLoading {
-                        Spacer()
-                        ProgressView()
-                            .tint(Theme.foreground)
-                            .frame(maxWidth: .infinity)
-                        Spacer()
-                    } else if let photo {
+            Group {
+                if isLoading {
+                    ProgressView()
+                        .tint(Theme.foreground)
+                } else if let photo {
+                    ScrollView {
                         content(for: photo)
-                    } else {
-                        Spacer()
-                        notFound
-                        Spacer()
                     }
+                    .scrollBounceBehavior(.basedOnSize)
+                    // A zoomed photo pans; the page under it stays put.
+                    .scrollDisabled(isPhotoZoomed)
+                    .onScrollGeometryChange(for: CGRect.self, of: \.visibleRect) { _, visibleRect in
+                        viewport = visibleRect
+                    }
+                } else {
+                    notFound
                 }
             }
-            // Close included: a zoomed photo is zoomed back out first.
-            .fadesWhilePhotoZoomed(isPhotoZoomed)
-            .photoZoomLayer(isZoomed: $isPhotoZoomed, cornerRadius: DesignTokens.Radius.lg) {
-                isProofShown.toggle()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                closeBar
             }
         }
         // It fades out with the page; back at 1x, the photo comes back bare.
@@ -106,8 +99,30 @@ struct PhotoVerificationView: View {
         }
     }
 
+    /// Pinned over the page, which scrolls under it. Opaque, so nothing —
+    /// the photo in the zoom layer included — shows through behind Close.
+    private var closeBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .symbolStyle(DesignTokens.TextStyles.title)
+                    .ctaIcon()
+            }
+            .accessibilityLabel("Close")
+            Spacer()
+        }
+        .padding(.horizontal, DesignTokens.Space.s6)
+        .padding(.top, DesignTokens.Space.s3)
+        .padding(.bottom, DesignTokens.Space.s4)
+        .background(Theme.background.ignoresSafeArea())
+        // A zoomed photo is zoomed back out first.
+        .fadesWhilePhotoZoomed(isPhotoZoomed)
+    }
+
     private func content(for photo: VerifiedPhoto) -> some View {
-        Group {
+        VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
                 HumanCard(radius: DesignTokens.Radius.md) {
                     HStack(spacing: DesignTokens.Space.s3) {
@@ -136,8 +151,10 @@ struct PhotoVerificationView: View {
 
             // `.fit` (not `.fill`) — the source images are full-resolution camera
             // photos, and `.fill` scales up to cover, overflowing its bounds and
-            // painting over the header above it. Zoomable, as in photo detail:
-            // a closer look is half of deciding whether to believe a photo.
+            // painting over the header above it. In a scroll view `.fit` takes
+            // the full width and its own height, so the photo's edges line up
+            // with the card's. Zoomable, as in photo detail: a closer look is
+            // half of deciding whether to believe a photo.
             RemotePhotoImage(photo: photo, contentMode: .fit, isZoomable: true, onLoad: { loadedImage = $0 })
                 // On the photo's own bounds, before the frame widens them.
                 .overlay {
@@ -150,53 +167,39 @@ struct PhotoVerificationView: View {
                         ) {
                             proof(for: photo)
                         }
+                        // The proof is drawn for sighted users only, and
+                        // nothing under the photo repeats it any more.
+                        .accessibilityValue(proofDescription(for: photo))
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg, style: .continuous))
                 .padding(.horizontal, DesignTokens.Space.s6)
-                .padding(.top, DesignTokens.Space.s1)
+                .padding(.top, DesignTokens.Space.s4)
 
-            if let owner {
-                ownerDetails(owner, capturedAt: photo.capturedAt)
+            if let owner, !owner.socialLinks.items.isEmpty {
+                socialLinks(owner.socialLinks.items)
                     .padding(.horizontal, DesignTokens.Space.s6)
-                    .padding(.top, DesignTokens.Space.s3)
+                    .padding(.top, DesignTokens.Space.s4)
             }
-
-            Spacer()
+        }
+        .padding(.bottom, DesignTokens.Space.s6)
+        // Close is the bar's, faded on its own.
+        .fadesWhilePhotoZoomed(isPhotoZoomed)
+        .photoZoomLayer(isZoomed: $isPhotoZoomed, cornerRadius: DesignTokens.Radius.lg, viewport: viewport) {
+            isProofShown.toggle()
         }
     }
 
-    /// Mirrors the layout of the website's verification page: the caption
-    /// line, then the verified name, then the handles as chips.
-    private func ownerDetails(_ owner: PhotoOwnerProfile, capturedAt: Date) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
-            Text(caption(for: owner, capturedAt: capturedAt))
-                .textStyle(DesignTokens.TextStyles.label)
-                .foregroundStyle(Theme.mutedForeground)
-
-            if let identity = owner.verifiedIdentity {
-                HStack(alignment: .top, spacing: DesignTokens.Space.s2) {
-                    BrandMark(size: DesignTokens.Space.s4)
-                    // The full sentence when there's a date to cite,
-                    // otherwise the name alone — see `VerifiedIdentity`.
-                    Text(identity.statement ?? identity.displayName)
-                        .textStyle(identity.statement == nil ? DesignTokens.TextStyles.title : DesignTokens.TextStyles.label)
-                        .foregroundStyle(identity.statement == nil ? Theme.foreground : Theme.mutedForeground)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
-            }
-
-            if !owner.socialLinks.items.isEmpty {
-                // Wraps rather than scrolls: five handles at most, and a
-                // horizontal scroller inside a full-screen cover competes
-                // with the dismiss gesture.
-                FlowLayout(spacing: DesignTokens.Space.s2) {
-                    ForEach(owner.socialLinks.items) { link in
-                        socialChip(link)
-                    }
-                }
+    /// The owner's handles, as chips. Who took the photo, their verified
+    /// name and when are on the photo itself, a tap away.
+    private func socialLinks(_ links: [SocialLink]) -> some View {
+        // Wraps rather than scrolls: five handles at most, and a horizontal
+        // scroller inside a full-screen cover competes with the dismiss
+        // gesture.
+        FlowLayout(spacing: DesignTokens.Space.s2) {
+            ForEach(links) { link in
+                socialChip(link)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,7 +207,6 @@ struct PhotoVerificationView: View {
 
     /// What the proof over the photo says: the website's username and date,
     /// with the verified name between them when the owner publishes one.
-    /// All of it is also in the text under the photo.
     @ViewBuilder
     private func proof(for photo: VerifiedPhoto) -> some View {
         if let owner {
@@ -220,11 +222,15 @@ struct PhotoVerificationView: View {
         date.formatted(.dateTime.month(.wide).day().year())
     }
 
-    private func caption(for owner: PhotoOwnerProfile, capturedAt: Date) -> String {
-        let captured = Self.capturedDate(capturedAt)
-        return owner.isVerified
-            ? "Verified by @\(owner.username) · captured \(captured)"
-            : "@\(owner.username) · captured \(captured)"
+    /// `proof(for:)` as one line, for VoiceOver.
+    private func proofDescription(for photo: VerifiedPhoto) -> String {
+        let captured = "captured \(Self.capturedDate(photo.capturedAt))"
+        guard let owner else { return captured }
+        let by = owner.isVerified ? "Verified by @\(owner.username)" : "@\(owner.username)"
+        if let identity = owner.verifiedIdentity {
+            return "\(by), \(identity.displayName), \(captured)"
+        }
+        return "\(by), \(captured)"
     }
 
     /// A handle with no resolvable URL renders as plain text rather than

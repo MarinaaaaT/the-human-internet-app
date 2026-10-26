@@ -10,11 +10,10 @@ import Testing
 
 /// Pins the origin allowlist guarding the Stripe Identity WKWebView.
 ///
-/// This exists because the screen it protects is currently impossible to test
-/// by hand: the `stripe_identity_verification` feature flag is off, and the
-/// Stripe account's Identity product isn't activated, so no VerificationSession
-/// URL can be minted to load. The policy is pure, though, so the interesting
-/// half is testable regardless — and it fails in both directions. Too strict
+/// This exists because the screen it protects is expensive to test by hand:
+/// every run is a real verification against a real ID. The policy is pure,
+/// though, so the interesting half is testable regardless — and it fails in
+/// both directions. Too strict
 /// and the flow dead-ends on a blank screen; too loose and an arbitrary origin
 /// inherits camera access on a screen that photographs a government ID.
 struct StripeIdentityHostPolicyTests {

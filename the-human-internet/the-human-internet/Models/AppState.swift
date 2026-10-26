@@ -83,8 +83,16 @@ final class AppState {
     /// `OnboardingFlowView` skips it and leaves the user `unverified`,
     /// identically to their tapping Skip — see
     /// `OnboardingFlowView.skipVerification()`.
-    var isStripeIdentityVerificationEnabled: Bool {
-        isEnabled(FeatureFlagKey.stripeIdentityVerification)
+    var isIdentityVerificationInOnboardingEnabled: Bool {
+        isEnabled(FeatureFlagKey.identityVerificationOnboarding)
+    }
+
+    /// Whether Profile settings offers identity verification: the Verify
+    /// identity button, the line about what verifying unlocks, and — for an
+    /// `unverified` user — the Identity verification row itself. See
+    /// `ProfileSettingsView`.
+    var isIdentityVerificationInSettingsEnabled: Bool {
+        isEnabled(FeatureFlagKey.identityVerificationSettings)
     }
 
     /// Whether this user's verification sessions run against Stripe's test
@@ -122,37 +130,18 @@ final class AppState {
         isAdmin && skipC2PASigningPreference
     }
 
-    /// Whether Settings offers the verification-page options to a verified
-    /// user. See `canCustomizeVerificationPage`.
-    ///
-    /// Like `isStripeIdentityVerificationEnabled`, this only decides what the
-    /// app *shows*. The switch that binds is server-side: the same flag is
-    /// resolved inside `get_verification_photo()` against the photo's owner,
-    /// so turning it off stops already-saved names and handles from being
-    /// published too — which is the half a client-side check could never do.
-    var isCustomVerificationPagesEnabled: Bool {
-        isEnabled(FeatureFlagKey.customVerificationPages)
-    }
-
     /// The reward for being verified: deciding what else goes on your public
     /// verification page beyond the photo — your verified name, your social
     /// handles. Profile settings shows the name and edits the handles, Photo
     /// settings chooses what's published; both ask this, so they can't
     /// disagree about who gets them.
     ///
-    /// Presentation only, like the flag above. `get_verification_photo()`
-    /// re-checks both `verification_status` and the flag before it hands
-    /// any of these fields to the website, so this can't be what decides
-    /// whether an unverified account publishes a name.
+    /// Presentation only. `get_verification_photo()` re-checks
+    /// `verification_status` before it hands any of these fields to the
+    /// website, so this can't be what decides whether an unverified account
+    /// publishes a name.
     var canCustomizeVerificationPage: Bool {
-        isCustomVerificationPagesEnabled && user.verificationStatus == .verified
-    }
-
-    /// Whether new captures go through `sign-photo`'s capture pipeline
-    /// (server watermarks, capture kept as the C2PA ingredient) instead of
-    /// being watermarked on device. See `FeatureFlagKey.serverSideWatermark`.
-    var isServerSideWatermarkEnabled: Bool {
-        isEnabled(FeatureFlagKey.serverSideWatermark)
+        user.verificationStatus == .verified
     }
 
     /// The user's **Photo Fingerprint** setting (Settings → Photo settings →

@@ -42,24 +42,24 @@ struct FeatureFlagAudienceTests {
 
     @Test func adminOnlyFlagIsOffForANonAdmin() {
         let appState = AppState()
-        appState.featureFlags = [FeatureFlagKey.stripeIdentityVerification: .admin]
+        appState.featureFlags = [FeatureFlagKey.identityVerificationOnboarding: .admin]
 
         appState.isAdmin = false
-        #expect(!appState.isStripeIdentityVerificationEnabled)
+        #expect(!appState.isIdentityVerificationInOnboardingEnabled)
 
         appState.isAdmin = true
-        #expect(appState.isStripeIdentityVerificationEnabled)
+        #expect(appState.isIdentityVerificationInOnboardingEnabled)
     }
 
     /// The picker edits the server's value; it must not start showing "Off"
     /// to a non-admin just because the flag isn't on for them.
     @Test func theAudienceShownIsTheStoredOneNotTheResolvedOne() {
         let appState = AppState()
-        appState.featureFlags = [FeatureFlagKey.stripeIdentityVerification: .admin]
+        appState.featureFlags = [FeatureFlagKey.identityVerificationOnboarding: .admin]
         appState.isAdmin = false
 
-        #expect(appState.audience(for: FeatureFlagKey.stripeIdentityVerification) == .admin)
-        #expect(!appState.isStripeIdentityVerificationEnabled)
+        #expect(appState.audience(for: FeatureFlagKey.identityVerificationOnboarding) == .admin)
+        #expect(!appState.isIdentityVerificationInOnboardingEnabled)
     }
 
     // MARK: - Fallbacks
@@ -74,21 +74,20 @@ struct FeatureFlagAudienceTests {
         appState.isAdmin = true
         #expect(appState.featureFlags.isEmpty)
 
-        #expect(!appState.isStripeIdentityVerificationEnabled)
+        #expect(!appState.isIdentityVerificationInOnboardingEnabled)
+        #expect(!appState.isIdentityVerificationInSettingsEnabled)
         #expect(!appState.isStripeIdentityTestModeEnabled)
-        #expect(!appState.isCustomVerificationPagesEnabled)
+        #expect(!appState.isNeueFontEnabled)
     }
 
-    /// Declared per flag rather than shared, even though all three agree
+    /// Declared per flag rather than shared, even though they all agree
     /// today: the safe direction belongs to what a flag guards.
-    /// `stripeIdentityVerification` fell back to `.all` while the verify step
-    /// was mandatory, and moved once it wasn't.
+    /// `stripe_identity_verification` fell back to `.all` while the verify
+    /// step was mandatory, and moved once it wasn't.
     @Test func fallbacksAreDeclaredPerFlag() {
-        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityVerification) == .off)
+        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.identityVerificationOnboarding) == .off)
+        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.identityVerificationSettings) == .off)
         #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.stripeIdentityTestMode) == .off)
-        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.customVerificationPages) == .off)
-        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.requireAppAttest) == .off)
-        #expect(FeatureFlagKey.fallbackAudience(for: FeatureFlagKey.serverSideWatermark) == .off)
     }
 
     /// A flag guarding something this build doesn't implement yet.
@@ -142,29 +141,38 @@ struct FeatureFlagAudienceTests {
         #expect(!appState.isStripeIdentityTestModeEnabled)
     }
 
-    // MARK: - The verification-page flag
+    // MARK: - The two identity verification flags
 
-    /// Dark-launchable like any other flag. Note what `admin` means for this
-    /// one specifically: the same resolution runs inside
-    /// `get_verification_photo()` against the photo's *owner*, so `admin`
-    /// publishes an admin's own customization to every signed-out visitor
-    /// while leaving everyone else's withheld.
-    @Test func customVerificationPagesResolvesLikeAnyOtherFlag() {
+    /// Split so each door can be shut on its own: switching one must never
+    /// move the other.
+    @Test func theOnboardingAndSettingsFlagsAreIndependent() {
         let appState = AppState()
 
-        appState.featureFlags = [FeatureFlagKey.customVerificationPages: .admin]
-        appState.isAdmin = false
-        #expect(!appState.isCustomVerificationPagesEnabled)
+        appState.featureFlags = [
+            FeatureFlagKey.identityVerificationOnboarding: .all,
+            FeatureFlagKey.identityVerificationSettings: .off,
+        ]
+        #expect(appState.isIdentityVerificationInOnboardingEnabled)
+        #expect(!appState.isIdentityVerificationInSettingsEnabled)
 
-        appState.isAdmin = true
-        #expect(appState.isCustomVerificationPagesEnabled)
+        appState.featureFlags = [
+            FeatureFlagKey.identityVerificationOnboarding: .off,
+            FeatureFlagKey.identityVerificationSettings: .all,
+        ]
+        #expect(!appState.isIdentityVerificationInOnboardingEnabled)
+        #expect(appState.isIdentityVerificationInSettingsEnabled)
+    }
 
-        appState.featureFlags = [FeatureFlagKey.customVerificationPages: .all]
-        appState.isAdmin = false
-        #expect(appState.isCustomVerificationPagesEnabled)
+    /// The verification-page options are the reward for being verified, and
+    /// no longer sit behind a flag of their own.
+    @Test func verifiedUsersCanCustomizeTheirVerificationPage() {
+        let appState = AppState()
+        appState.featureFlags = [:]
 
-        appState.featureFlags = [FeatureFlagKey.customVerificationPages: .off]
-        appState.isAdmin = true
-        #expect(!appState.isCustomVerificationPagesEnabled)
+        appState.user.verificationStatus = .unverified
+        #expect(!appState.canCustomizeVerificationPage)
+
+        appState.user.verificationStatus = .verified
+        #expect(appState.canCustomizeVerificationPage)
     }
 }

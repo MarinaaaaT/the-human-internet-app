@@ -36,6 +36,9 @@ struct RemotePhotoImage: View {
     /// drops the zoom back to 1x — photo detail's pager turns it off for
     /// every page but the open one, so a photo swiped away isn't still
     /// zoomed when swiped back to.
+    ///
+    /// Also what earns the real pixels: only a zoomable photo is decoded at
+    /// full resolution (see `Resolution`).
     var isZoomable: Bool = false
     /// Reads the photo from `LocalPhotoStore` when this device has it, and
     /// keeps a copy of anything it does have to download — so the user's own
@@ -62,14 +65,55 @@ struct RemotePhotoImage: View {
     /// rather than assumed fresh. The provisional flag is part of it so the
     /// raw capture is replaced the moment the watermarked photo exists.
     @State private var loadedKey: String?
+    /// How detailed `image` is. Only ever goes up for the same photo: a
+    /// photo that's had its full decode keeps it until the view goes away.
+    @State private var loadedResolution: Resolution?
 
     private var loadKey: String { "\(photo.storagePath)#\(isProvisional ? "raw" : "final")" }
     private var isLoaded: Bool { loadedKey == loadKey }
 
+    /// How much of the photo to decode.
+    ///
+    /// Photo detail's pager is why there's a middle step. Every page beside
+    /// the open one used to hold a full 12MP decode (~48MB), and each had to
+    /// go up to the GPU as it slid on screen, mid-swipe — which is what made
+    /// paging stutter. Now they decode to `screen`, a quarter of the pixels
+    /// and still more than a phone shows at 1x, and only the open page — the
+    /// one that can zoom — swaps up to `full`, once it's settled. The swap
+    /// keeps the screen-sized image up until the full one is ready, so
+    /// nothing flashes.
+    enum Resolution: Int, Comparable {
+        /// Capped at `thumbnailMaxPixelSize`.
+        case thumbnail
+        /// Capped at `screenMaxPixelSize`.
+        case screen
+        /// Every pixel, for zooming in up to 4x.
+        case full
+
+        static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+
+        var maxPixelSize: CGFloat? {
+            switch self {
+            case .thumbnail: return RemotePhotoImage.thumbnailMaxPixelSize
+            case .screen: return RemotePhotoImage.screenMaxPixelSize
+            case .full: return nil
+            }
+        }
+    }
+
+    private var resolution: Resolution {
+        if isThumbnail { return .thumbnail }
+        return isZoomable ? .full : .screen
+    }
+
     /// A 2-column grid renders each cell at well under this on any device
     /// size, so decoding to this cap loses no visible detail while using a
     /// fraction of the memory/bandwidth of a ~4000px full-resolution capture.
-    nonisolated private static let thumbnailMaxPixelSize: CGFloat = 600
+    nonisolated static let thumbnailMaxPixelSize: CGFloat = 600
+    /// The long side of a photo shown full width, unzoomed, on the largest
+    /// iPhone is under 1,600px for a 3:4 capture, so this is sharp on all of
+    /// them.
+    nonisolated static let screenMaxPixelSize: CGFloat = 2048
 
     var body: some View {
         Group {
@@ -97,19 +141,26 @@ struct RemotePhotoImage: View {
                 }
             }
         }
-        .task(id: loadKey) {
+        .task(id: "\(loadKey)@\(resolution.rawValue)") {
             // Guards on the *photo*, not merely on "have I loaded
             // something" — the latter left a reused view showing the
             // previous photo forever.
-            guard !isLoaded else { return }
-            image = nil
-            didFail = false
+            let wanted = resolution
+            if isLoaded {
+                guard let loadedResolution, loadedResolution < wanted else { return }
+                // A more detailed decode of the photo already on screen:
+                // it stays up meanwhile.
+            } else {
+                image = nil
+                didFail = false
+            }
 
             // The cache only ever holds final (watermarked) images — see
             // `cacheAndSet` — so a provisional load always goes to disk.
             if isThumbnail, !isProvisional, let cached = PhotoThumbnailCache.image(for: photo.storagePath) {
                 image = cached
                 loadedKey = loadKey
+                loadedResolution = .thumbnail
                 onLoad?(cached)
                 return
             }
@@ -120,7 +171,7 @@ struct RemotePhotoImage: View {
             let key = loadKey
             let photoID = photo.id
             let userID = photo.userID
-            let asThumbnail = isThumbnail
+            let maxPixelSize = wanted.maxPixelSize
 
             // A photo that's still uploading (or just resumed after a
             // force-quit) has no object in Storage yet — fetching it there
@@ -128,12 +179,12 @@ struct RemotePhotoImage: View {
             // never retry even after the upload finishes moments later. The
             // local pending copy has the identical bytes, so prefer it.
             if let localData = PhotoUploadQueue.localImageData(for: photoID) {
-                cacheAndSet(await Self.decoded({ localData }, asThumbnail: asThumbnail), for: key)
+                cacheAndSet(await Self.decoded({ localData }, maxPixelSize: maxPixelSize), for: key, at: wanted)
                 return
             }
             if usesLocalCopy,
-               let stored = await Self.decoded({ LocalPhotoStore.data(photoID: photoID, userID: userID) }, asThumbnail: asThumbnail) {
-                cacheAndSet(stored, for: key)
+               let stored = await Self.decoded({ LocalPhotoStore.data(photoID: photoID, userID: userID) }, maxPixelSize: maxPixelSize) {
+                cacheAndSet(stored, for: key, at: wanted)
                 return
             }
             do {
@@ -141,10 +192,11 @@ struct RemotePhotoImage: View {
                 if usesLocalCopy, !Task.isCancelled {
                     LocalPhotoStore.store(data, photoID: photoID, userID: userID)
                 }
-                cacheAndSet(await Self.decoded({ data }, asThumbnail: asThumbnail), for: key)
+                cacheAndSet(await Self.decoded({ data }, maxPixelSize: maxPixelSize), for: key, at: wanted)
             } catch {
-                // Superseded or torn down, not failed.
-                guard !Task.isCancelled else { return }
+                // Superseded or torn down, not failed — and an upgrade that
+                // fails still has the photo it started from on screen.
+                guard !Task.isCancelled, !isLoaded else { return }
                 didFail = true
                 Log.photos.error("Download failed for \(photo.storagePath, privacy: .public): \(error, privacy: .public)")
             }
@@ -156,15 +208,19 @@ struct RemotePhotoImage: View {
     /// and be shown, unmarked, for as long as the process lives.
     ///
     /// Drops `decoded` if `key` is no longer the current load — a newer one
-    /// superseded it while it decoded.
-    private func cacheAndSet(_ decoded: UIImage?, for key: String) {
+    /// superseded it while it decoded — or if it's less detailed than what's
+    /// already on screen, as a screen-sized decode finishing after the full
+    /// one would be.
+    private func cacheAndSet(_ decoded: UIImage?, for key: String, at resolution: Resolution) {
         guard key == loadKey else { return }
+        if isLoaded, let loadedResolution, resolution < loadedResolution { return }
         if isProvisional, let decoded, let mark = UIImage(named: PhotoWatermarker.markAssetName), mark.size.width > 0 {
             let rect = PhotoWatermarker.markRect(in: decoded.size, markAspectRatio: mark.size.height / mark.size.width)
             provisionalMarkColor = PhotoWatermarker.markColor(for: decoded, in: rect)
         }
         image = decoded
         loadedKey = key
+        loadedResolution = resolution
         if let decoded { onLoad?(decoded) }
         if isThumbnail, !isProvisional, let decoded {
             PhotoThumbnailCache.store(decoded, for: photo.storagePath)
@@ -174,19 +230,20 @@ struct RemotePhotoImage: View {
     /// Reads and decodes off the main thread. With photos coming off disk, a
     /// whole screen of grid cells loads at once, and decoding them there
     /// would stall scrolling.
-    private static func decoded(_ read: @escaping @Sendable () -> Data?, asThumbnail: Bool) async -> UIImage? {
+    private static func decoded(_ read: @escaping @Sendable () -> Data?, maxPixelSize: CGFloat?) async -> UIImage? {
         await Task.detached(priority: .userInitiated) {
-            read().flatMap { decode($0, asThumbnail: asThumbnail) }
+            read().flatMap { decode($0, maxPixelSize: maxPixelSize) }
         }.value
     }
 
-    nonisolated private static func decode(_ data: Data, asThumbnail: Bool) -> UIImage? {
-        guard asThumbnail else {
+    /// `nil` decodes every pixel.
+    nonisolated private static func decode(_ data: Data, maxPixelSize: CGFloat?) -> UIImage? {
+        guard let maxPixelSize else {
             // Decoded now rather than on first draw, which is on the main thread.
             let image = UIImage(data: data)
             return image?.preparingForDisplay() ?? image
         }
-        return downsampled(data: data, maxPixelSize: thumbnailMaxPixelSize) ?? UIImage(data: data)
+        return downsampled(data: data, maxPixelSize: maxPixelSize) ?? UIImage(data: data)
     }
 
     /// Decodes straight to a capped pixel size via ImageIO instead of
