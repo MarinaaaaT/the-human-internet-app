@@ -41,13 +41,33 @@ enum UserProfileRepository {
         (error as? PostgrestError)?.code == "23505"
     }
 
+    /// What `stripe-identity-session` answered.
+    enum IdentityVerificationStart: Equatable {
+        /// Stripe's hosted flow, to present in `StripeIdentityWebView`.
+        case hosted(URL)
+        /// The demo account: already `verified` server-side, without Stripe.
+        case demoApproved
+    }
+
     /// Creates (or, on retry, resumes) a Stripe Identity VerificationSession
     /// via the `stripe-identity-session` Edge Function and returns its hosted
     /// verification URL. The Stripe secret key never leaves the server side.
-    static func createIdentityVerificationSession() async throws -> URL {
-        struct Response: Decodable { let url: URL }
+    ///
+    /// For the demo account the function approves it on the spot instead —
+    /// it decides that from `users.is_demo`, not from anything sent here.
+    static func createIdentityVerificationSession() async throws -> IdentityVerificationStart {
+        struct Response: Decodable {
+            let url: URL?
+            let demoVerified: Bool?
+            enum CodingKeys: String, CodingKey {
+                case url
+                case demoVerified = "demo_verified"
+            }
+        }
         let response: Response = try await supabase.functions.invoke("stripe-identity-session")
-        return response.url
+        if response.demoVerified == true { return .demoApproved }
+        guard let url = response.url else { throw URLError(.badServerResponse) }
+        return .hosted(url)
     }
 
     /// Reads back just `verification_status`.
@@ -172,6 +192,24 @@ enum UserProfileRepository {
         struct Body: Decodable { let code: String? }
         guard case .httpError(400, let data) = error as? FunctionsError else { return nil }
         return (try? JSONDecoder().decode(Body.self, from: data))?.code
+    }
+
+    /// Whether this is the demo account (`users.is_demo`). Read-only and
+    /// not on `HumanUser`, for the reason `fetchIsAdmin` gives: the demo
+    /// account is auto-verified, so this must never be something a client
+    /// can write by sending its own row back. Triggers revert it anyway.
+    static func fetchIsDemo(userID: UUID) async throws -> Bool {
+        struct Row: Decodable {
+            let isDemo: Bool
+            enum CodingKeys: String, CodingKey { case isDemo = "is_demo" }
+        }
+        let rows: [Row] = try await supabase
+            .from("users")
+            .select("is_demo")
+            .eq("id", value: userID)
+            .execute()
+            .value
+        return rows.first?.isDemo ?? false
     }
 
     /// Deliberately not a field on `HumanUser`: that struct round-trips

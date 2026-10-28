@@ -15,7 +15,8 @@ struct IdentityVerificationView: View {
     var skipTitle: String = "Skip"
     var onSkip: () -> Void
     /// Called once Stripe redirects back, meaning the user submitted. The
-    /// verified/failed outcome lands later, via the webhook.
+    /// verified/failed outcome lands later, via the webhook. On the demo
+    /// account it's called straight away, already `verified`.
     var onFinish: () -> Void
 
     @State private var isCreatingSession = false
@@ -44,6 +45,14 @@ struct IdentityVerificationView: View {
                     // against both of them error-prone.
                     if appState.isStripeIdentityTestModeEnabled {
                         Text("Stripe test environment — this verification is a sandbox one and proves nothing about a real identity.")
+                            .textStyle(DesignTokens.TextStyles.caption)
+                            .foregroundStyle(Theme.foreground)
+                    }
+
+                    // The server approves the demo account without Stripe;
+                    // say so, rather than promising an ID scan.
+                    if appState.isDemoAccount {
+                        Text("Demo account. Verification is approved instantly, with no ID scan.")
                             .textStyle(DesignTokens.TextStyles.caption)
                             .foregroundStyle(Theme.foreground)
                     }
@@ -111,7 +120,17 @@ struct IdentityVerificationView: View {
         isCreatingSession = true
         Task {
             do {
-                verificationURL = try await UserProfileRepository.createIdentityVerificationSession()
+                switch try await UserProfileRepository.createIdentityVerificationSession() {
+                case .hosted(let url):
+                    verificationURL = url
+                case .demoApproved:
+                    // Written server-side already. Mirrored locally so the
+                    // caller's upsert sends `verified` back, which the
+                    // trigger leaves alone as no change, rather than a stale
+                    // `unverified`, which it would revert to nothing.
+                    appState.user.verificationStatus = .verified
+                    onFinish()
+                }
             } catch {
                 errorMessage = "Couldn't start verification — please try again."
                 Log.onboarding.error("Creating identity verification session failed: \(error, privacy: .public)")

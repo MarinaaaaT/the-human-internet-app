@@ -126,11 +126,19 @@ struct PhotoVerificationView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Space.s3) {
                 HumanCard(radius: DesignTokens.Radius.md) {
                     HStack(spacing: DesignTokens.Space.s3) {
-                        // "Verified" is always the spiral, never a check.
-                        BrandMark(size: DesignTokens.Size.icon)
-                        Text("This photo was taken by a real human!")
-                            .textStyle(DesignTokens.TextStyles.title)
-                            .foregroundStyle(Theme.foreground)
+                        if owner?.isDemo == true {
+                            // No spiral: the spiral means verified, and this
+                            // is the one box that says it isn't guaranteed.
+                            Text(DemoAccount.verificationDisclaimer)
+                                .textStyle(DesignTokens.TextStyles.title)
+                                .foregroundStyle(Theme.foreground)
+                        } else {
+                            // "Verified" is always the spiral, never a check.
+                            BrandMark(size: DesignTokens.Size.icon)
+                            Text("This photo was taken by a real human!")
+                                .textStyle(DesignTokens.TextStyles.title)
+                                .foregroundStyle(Theme.foreground)
+                        }
                     }
                 }
 

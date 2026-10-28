@@ -25,12 +25,17 @@ struct AccountSettingsView: View {
                 SettingsRow(title: "Privacy", value: appState.user.privacy.rawValue, systemImage: "pencil") {
                     showPrivacySheet = true
                 }
-                Divider().overlay(Theme.border)
 
                 // A plain row, like Log Out — the confirmation sheet is where
                 // the weight of this goes, not the row.
-                SettingsRow(title: "Delete your account", systemImage: "trash") {
-                    showDeleteConfirmation = true
+                //
+                // Not on the demo account: it has no Apple ID to re-confirm
+                // with, it's shared, and the demo link resets it anyway.
+                if !appState.isDemoAccount {
+                    Divider().overlay(Theme.border)
+                    SettingsRow(title: "Delete your account", systemImage: "trash") {
+                        showDeleteConfirmation = true
+                    }
                 }
 
                 Spacer()

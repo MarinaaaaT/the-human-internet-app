@@ -21,7 +21,9 @@ enum PhotoWatermarkerError: Error {
 /// **No longer the main path.** The signing Lambda burns the mark in
 /// (`aws-signing-lambda/src/watermark.rs` in the backend repo) so the capture
 /// can be signed first and kept as the watermarked photo's C2PA ingredient.
-/// This stays only for the developer tools' Skip C2PA.
+/// This stays for the developer tools' Skip C2PA, and for the demo account,
+/// whose photos also get "DEMO" (`DemoWatermark`) in the same pass — which
+/// the Lambda doesn't draw.
 ///
 /// **The mark is an image**, the `BrandMarkWatermark` image set — the spiral
 /// "fingerprint", the same PNG as the Lambda's `assets/brand-mark.png` and
@@ -106,30 +108,39 @@ enum PhotoWatermarker {
     }
 
     /// Composites off the main actor — real work at full photo resolution.
-    static func watermark(imageData: Data) async throws -> Data {
+    ///
+    /// `includesMark` is the fingerprint, `includesDemo` the demo account's
+    /// "DEMO"; a photo gets whichever are asked for, in one pass.
+    static func watermark(imageData: Data, includesMark: Bool = true, includesDemo: Bool = false) async throws -> Data {
         guard let baseImage = UIImage(data: imageData) else {
             throw PhotoWatermarkerError.invalidImage
         }
-        guard let markImage = UIImage(named: markAssetName), markImage.size.width > 0 else {
+        let markImage = UIImage(named: markAssetName)
+        if includesMark, (markImage?.size.width ?? 0) <= 0 {
             throw PhotoWatermarkerError.markMissing
         }
 
         return try await Task.detached(priority: .userInitiated) {
-            let markRect = PhotoWatermarker.markRect(
-                in: baseImage.size,
-                markAspectRatio: markImage.size.height / markImage.size.width
-            )
             // Decided from the photo before anything is drawn on it.
-            let tinted = markImage.withTintColor(
-                PhotoWatermarker.markColor(for: baseImage, in: markRect).uiColor,
-                renderingMode: .alwaysOriginal
-            )
+            let mark: (image: UIImage, rect: CGRect)? = markImage.flatMap { markImage in
+                guard includesMark else { return nil }
+                let rect = PhotoWatermarker.markRect(
+                    in: baseImage.size,
+                    markAspectRatio: markImage.size.height / markImage.size.width
+                )
+                let tinted = markImage.withTintColor(
+                    PhotoWatermarker.markColor(for: baseImage, in: rect).uiColor,
+                    renderingMode: .alwaysOriginal
+                )
+                return (tinted, rect)
+            }
 
             let format = UIGraphicsImageRendererFormat()
             format.scale = baseImage.scale
             let output = UIGraphicsImageRenderer(size: baseImage.size, format: format).image { _ in
                 baseImage.draw(in: CGRect(origin: .zero, size: baseImage.size))
-                tinted.draw(in: markRect)
+                if includesDemo { DemoWatermark.draw(in: baseImage.size) }
+                if let mark { mark.image.draw(in: mark.rect) }
             }
 
             guard let jpegData = output.jpegData(compressionQuality: 0.95) else {

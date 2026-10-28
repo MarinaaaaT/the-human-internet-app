@@ -114,6 +114,7 @@ struct CameraCaptureView: View {
                                     photo: last,
                                     uploadState: appState.uploadState(for: last.id),
                                     isProvisional: appState.provisionalPhotoIDs.contains(last.id),
+                                    provisionalMarks: appState.provisionalMarks,
                                     onRetry: {
                                         PhotoUploadQueue.retry(photoID: last.id, appState: appState)
                                     }

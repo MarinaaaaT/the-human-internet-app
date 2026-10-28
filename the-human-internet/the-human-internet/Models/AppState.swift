@@ -169,6 +169,31 @@ final class AppState {
         }
     }
 
+    /// Whether this is the shared demo account (`thehumaninternet://demo` —
+    /// see `DemoAccount`). Read from `users.is_demo`, which only the service
+    /// role can write; like `isAdmin`, never sourced from `HumanUser`.
+    ///
+    /// Decides one thing on device: every photo gets "DEMO" burned in along
+    /// with the fingerprint (`PhotoUploadQueue`), and drawn over it until
+    /// then (`provisionalMarks`). What the verification pages say comes from
+    /// the server, not from this.
+    var isDemoAccount = false
+
+    /// While the demo link is resetting and signing into the demo account.
+    /// `RootView` shows its spinner in place of everything, which also
+    /// rebuilds onboarding from scratch once it's done.
+    var isEnteringDemoAccount = false
+
+    /// What a provisional photo has drawn over it until its own marks are
+    /// burned in: the fingerprint unless Photo Fingerprint is off, and
+    /// "DEMO" on the demo account whatever that switch says.
+    var provisionalMarks: ProvisionalWatermark.Marks {
+        var marks: ProvisionalWatermark.Marks = []
+        if isWatermarkEnabled { marks.insert(.fingerprint) }
+        if isDemoAccount { marks.insert(.demo) }
+        return marks
+    }
+
     /// Whether text is set in PP Neue Montreal rather than Inter Display.
     /// See `FeatureFlagKey.neueFont` — the storage policy on the font files
     /// resolves the same flag, so this can't fetch them when it says no.
@@ -250,8 +275,53 @@ final class AppState {
         provisionalPhotoIDs = []
         deepLinkedPhoto = nil
         isAdmin = false
+        isDemoAccount = false
         featureFlags = [:]
         isWatermarkEnabled = true
+    }
+
+    /// The demo link: resets the demo account server-side (everything but
+    /// its photos) and signs into it, skipping Sign in with Apple, then
+    /// hydrates it like any sign-in. The reset puts it back at the profile
+    /// step, so it goes through onboarding with the username prefilled.
+    ///
+    /// Opening it while signed in as someone else switches accounts the way
+    /// an involuntary sign-out does (`handleSessionInvalidated`): their
+    /// pending uploads stay on disk for when they sign back in, rather than
+    /// being pruned as an explicit Log Out would. Reopening it as the demo
+    /// account skips that, so uploads already in flight carry on.
+    ///
+    /// Nothing about the signed-in account changes until `demo-session` has
+    /// answered, so a failure leaves whoever was signed in still signed in,
+    /// with their state intact (back at the start of the screen they were
+    /// on, since `RootView` swapped it for a spinner meanwhile).
+    func enterDemoAccount() async throws {
+        isEnteringDemoAccount = true
+        defer { isEnteringDemoAccount = false }
+
+        let tokens = try await DemoAccount.startSession()
+        // Replaces the stored session outright. Not a sign-out first: that
+        // emits `.signedOut`, which `RootView` would handle by clearing
+        // state — possibly after this has hydrated the demo account.
+        let session = try await supabase.auth.setSession(
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken
+        )
+        let userID = session.user.id
+        if user.id != userID {
+            handleSessionInvalidated()
+        } else {
+            deepLinkedPhoto = nil
+        }
+        do {
+            try await hydrate(userID: userID)
+        } catch {
+            // Signed in but unreadable: the same fallback as `RootView`'s,
+            // which leaves onboarding to write the row back.
+            user = HumanUser(id: userID)
+            isOnboarded = false
+            throw error
+        }
     }
 
     /// Permanently deletes this account server-side — after revoking its
@@ -332,6 +402,15 @@ final class AppState {
         user = profile
         isOnboarded = profile.onboardingStep == .completed
         isAdmin = try await UserProfileRepository.fetchIsAdmin(userID: userID)
+        // Fail-soft for the same reason as the fingerprint below: a project
+        // without the column must not cost every user their sign-in. Only
+        // the demo account has anything to lose from reading `false`.
+        do {
+            isDemoAccount = try await UserProfileRepository.fetchIsDemo(userID: userID)
+        } catch {
+            isDemoAccount = false
+            Log.auth.error("Reading demo account flag failed: \(error, privacy: .public)")
+        }
         featureFlags = try await FeatureFlagRepository.fetchAll()
         // Fail-soft on purpose: a failed read (or a project where the column
         // doesn't exist yet) must not cost the user their sign-in. Falls

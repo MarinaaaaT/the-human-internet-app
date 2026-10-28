@@ -25,6 +25,12 @@ import Foundation
 /// capture is signed as-is via `RemotePhotoSigner.sign`, and no provisional
 /// mark is drawn.
 ///
+/// Or unless it's the **demo account** (`AppState.isDemoAccount`): then
+/// `PhotoWatermarker` burns "DEMO" in on device, along with the fingerprint
+/// if it's on, and the result is signed as-is — the Lambda draws only the
+/// fingerprint, and the word has to go in before the signature like any
+/// other mark.
+///
 /// The on-disk manifest is the durable source of truth for "what's still
 /// pending"; `AppState.photos`/`processingPhotoIDs`/`failedPhotoIDs` are just
 /// an in-memory reflection of it for the UI. `AppState.hydrate` calls
@@ -165,7 +171,7 @@ enum PhotoUploadQueue {
         var manifest = loadManifest()
         manifest.append(PendingUpload(id: photoID, userID: userID, capturedAt: capturedAt, shortCode: shortCode, isSigned: false))
         saveManifest(manifest)
-        if appState.isWatermarkEnabled {
+        if !appState.provisionalMarks.isEmpty {
             appState.provisionalPhotoIDs.insert(photoID)
         }
 
@@ -192,7 +198,7 @@ enum PhotoUploadQueue {
                 let photo = VerifiedPhoto(id: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode)
                 appState.photos.append(photo)
             }
-            if !item.isSigned, appState.isWatermarkEnabled {
+            if !item.isSigned, !appState.provisionalMarks.isEmpty {
                 appState.provisionalPhotoIDs.insert(item.id)
             }
             drive(photoID: item.id, userID: item.userID, capturedAt: item.capturedAt, shortCode: item.shortCode, appState: appState)
@@ -349,7 +355,18 @@ enum PhotoUploadQueue {
                     // bytes that get uploaded and shared.
                     let processedData: Data
                     var hasOriginal = false
-                    if !appState.isWatermarkEnabled {
+                    if appState.isDemoAccount {
+                        // Both marks in one pass on device, then signed as
+                        // they are — or, with C2PA skipped, not at all.
+                        let marked = try await PhotoWatermarker.watermark(
+                            imageData: imageData,
+                            includesMark: appState.isWatermarkEnabled,
+                            includesDemo: true
+                        )
+                        processedData = appState.isC2PASigningSkipped
+                            ? marked
+                            : try await RemotePhotoSigner.sign(imageData: marked)
+                    } else if !appState.isWatermarkEnabled {
                         // Photo Fingerprint off: no mark. The raw capture is
                         // signed exactly as shot — the same
                         // `digitalCapture` claim, with nothing burned in — or,
