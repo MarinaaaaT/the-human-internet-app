@@ -55,6 +55,7 @@ struct ProfileView: View {
                                         : .inactive,
                                     uploadState: appState.uploadState(for: photo.id),
                                     isProvisional: appState.provisionalPhotoIDs.contains(photo.id),
+                                    provisionalMarks: appState.provisionalMarks,
                                     onRetry: {
                                         PhotoUploadQueue.retry(photoID: photo.id, appState: appState)
                                     }

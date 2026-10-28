@@ -383,6 +383,10 @@ struct PhotoOwnerProfile: Decodable, Hashable {
     /// arrive and vanish together.
     var identityVerifiedAt: Date?
     var socialLinks: SocialLinks
+    /// The photo was taken on the demo account (`users.is_demo`, which only
+    /// the service role writes). The page then says human authenticity is
+    /// not guaranteed instead of claiming a real human took it.
+    var isDemo: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case username
@@ -390,6 +394,20 @@ struct PhotoOwnerProfile: Decodable, Hashable {
         case displayName = "display_name"
         case identityVerifiedAt = "identity_verified_at"
         case socialLinks = "social_links"
+        case isDemo = "is_demo"
+    }
+
+    /// Written out only so a missing `is_demo` — an RPC that predates the
+    /// column — reads as `false` rather than failing the whole decode, which
+    /// would cost the page its caption and handles.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        username = try container.decode(String.self, forKey: .username)
+        isVerified = try container.decode(Bool.self, forKey: .isVerified)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        identityVerifiedAt = try container.decodeIfPresent(Date.self, forKey: .identityVerifiedAt)
+        socialLinks = try container.decode(SocialLinks.self, forKey: .socialLinks)
+        isDemo = try container.decodeIfPresent(Bool.self, forKey: .isDemo) ?? false
     }
 
     /// The verified identity as one value, or nil when the owner publishes

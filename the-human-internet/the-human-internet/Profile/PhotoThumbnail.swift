@@ -19,11 +19,12 @@ struct PhotoThumbnail: View {
     var uploadState: PhotoUploadState = .idle
     /// See `RemotePhotoImage.isProvisional` / `AppState.provisionalPhotoIDs`.
     var isProvisional: Bool = false
+    var provisionalMarks: ProvisionalWatermark.Marks = .fingerprint
     /// Only invoked from the `.failed` badge.
     var onRetry: () -> Void = {}
 
     var body: some View {
-        RemotePhotoImage(photo: photo, isThumbnail: true, isProvisional: isProvisional, usesLocalCopy: true)
+        RemotePhotoImage(photo: photo, isThumbnail: true, isProvisional: isProvisional, provisionalMarks: provisionalMarks, usesLocalCopy: true)
             // `.fit`, not `.fill`: in a LazyVGrid, the proposed height is
             // effectively unconstrained, and "fill a 1:1 box that's at
             // least as tall as infinity" is undefined — it silently fell

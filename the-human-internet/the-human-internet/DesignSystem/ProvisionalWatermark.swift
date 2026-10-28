@@ -18,12 +18,27 @@ import SwiftUI
 /// `color` is `PhotoWatermarker.markColor` for the photo underneath — the
 /// same black-or-white choice the burned-in mark will make (see
 /// `RemotePhotoImage`, which works it out once per loaded image).
+///
+/// `marks` is what the photo will get: the fingerprint, and on the demo
+/// account "DEMO" across the middle (`DemoWatermark`, drawn by the same code
+/// that burns it in). See `AppState.provisionalMarks`.
 struct ProvisionalWatermark: View {
+    struct Marks: OptionSet, Hashable {
+        let rawValue: Int
+        static let fingerprint = Marks(rawValue: 1 << 0)
+        static let demo = Marks(rawValue: 1 << 1)
+    }
+
     var color: PhotoWatermarker.MarkColor = .white
+    var marks: Marks = .fingerprint
 
     var body: some View {
         GeometryReader { geometry in
-            if let mark = UIImage(named: PhotoWatermarker.markAssetName), mark.size.width > 0 {
+            if marks.contains(.demo), geometry.size.width > 0, geometry.size.height > 0 {
+                Image(uiImage: DemoWatermark.overlayImage(size: geometry.size))
+                    .resizable()
+            }
+            if marks.contains(.fingerprint), let mark = UIImage(named: PhotoWatermarker.markAssetName), mark.size.width > 0 {
                 let rect = PhotoWatermarker.markRect(
                     in: geometry.size,
                     markAspectRatio: mark.size.height / mark.size.width
@@ -44,6 +59,6 @@ struct ProvisionalWatermark: View {
 #Preview {
     Color.gray
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
-        .overlay { ProvisionalWatermark(color: .black) }
+        .overlay { ProvisionalWatermark(color: .black, marks: [.fingerprint, .demo]) }
         .padding()
 }

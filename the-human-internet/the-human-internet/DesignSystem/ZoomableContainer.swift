@@ -42,7 +42,7 @@ extension View {
                             onZoomChange: { isZoomed.wrappedValue = $0 },
                             onTap: onTap
                         ) {
-                            LoadedPhoto(image: photo.image, isProvisional: photo.isProvisional, markColor: photo.markColor)
+                            LoadedPhoto(image: photo.image, isProvisional: photo.isProvisional, marks: photo.marks, markColor: photo.markColor)
                         }
                         // Gone while zoomed — swiped away, or swapped for its
                         // watermarked version — leaves nothing zoomed.
@@ -80,6 +80,7 @@ extension EnvironmentValues {
 struct ZoomablePhoto {
     let image: UIImage
     let isProvisional: Bool
+    let marks: ProvisionalWatermark.Marks
     let markColor: PhotoWatermarker.MarkColor
     /// Where the `RemotePhotoImage` was laid out — where the photo rests at 1x.
     let restingBounds: Anchor<CGRect>

@@ -11,10 +11,17 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var isRestoringSession = true
     @State private var showDeveloperMenu = false
+    /// A demo link that arrived while the stored session was still being
+    /// restored — on a cold launch from the link itself. Run once that's
+    /// done, so restoring the previous account can't land on top of it.
+    @State private var isDemoEntryPending = false
+    @State private var demoErrorMessage: String?
 
     var body: some View {
         Group {
-            if isRestoringSession {
+            // Also while the demo link signs in: whatever was on screen goes,
+            // so onboarding is built fresh at the profile step when it's done.
+            if isRestoringSession || appState.isEnteringDemoAccount {
                 ZStack {
                     Theme.background.ignoresSafeArea()
                     ProgressView()
@@ -62,6 +69,14 @@ struct RootView: View {
         .onChange(of: appState.isOnboarded) { _, isOnboarded in
             if !isOnboarded { showDeveloperMenu = false }
         }
+        .alert(
+            "Couldn't open the demo account",
+            isPresented: Binding(get: { demoErrorMessage != nil }, set: { if !$0 { demoErrorMessage = nil } })
+        ) {
+            Button("OK") { demoErrorMessage = nil }
+        } message: {
+            Text(demoErrorMessage ?? "")
+        }
         .fullScreenCover(item: Binding(
             get: { appState.deepLinkedPhoto },
             set: { appState.deepLinkedPhoto = $0 }
@@ -82,6 +97,10 @@ struct RootView: View {
                         await resolveProfile(userID: userID)
                     }
                     isRestoringSession = false
+                    if isDemoEntryPending {
+                        isDemoEntryPending = false
+                        enterDemoAccount()
+                    }
                 case .signedOut:
                     // Ignore before the initial restore finishes — there's no prior
                     // session to have been revoked yet, and appState is already fresh.
@@ -98,11 +117,35 @@ struct RootView: View {
     /// (`https://the-human-internet.com/{id}`) once the website hosts an
     /// apple-app-site-association file — this parsing/presentation logic stays
     /// the same either way.
+    ///
+    /// Also `thehumaninternet://demo`, which signs into the demo account —
+    /// see `DemoAccount`.
     private func handle(url: URL) {
+        if DemoAccount.isEntryLink(url) {
+            if isRestoringSession {
+                isDemoEntryPending = true
+            } else {
+                enterDemoAccount()
+            }
+            return
+        }
         guard url.scheme == VerifiedPhoto.deepLinkScheme,
               url.host == VerifiedPhoto.deepLinkHost else { return }
         guard let id = UUID(uuidString: url.lastPathComponent) else { return }
         appState.deepLinkedPhoto = DeepLinkedPhoto(id: id)
+    }
+
+    private func enterDemoAccount() {
+        guard !appState.isEnteringDemoAccount else { return }
+        showDeveloperMenu = false
+        Task {
+            do {
+                try await appState.enterDemoAccount()
+            } catch {
+                Log.auth.error("Entering the demo account failed: \(error, privacy: .public)")
+                demoErrorMessage = "Please try the link again."
+            }
+        }
     }
 
     /// A restored session only proves the identity is authenticated — it doesn't say

@@ -179,6 +179,7 @@ struct PhotoDetailView: View {
                     photo: photo,
                     contentMode: .fit,
                     isProvisional: appState.provisionalPhotoIDs.contains(photo.id),
+                    provisionalMarks: appState.provisionalMarks,
                     isZoomable: isOpen,
                     usesLocalCopy: true
                 )

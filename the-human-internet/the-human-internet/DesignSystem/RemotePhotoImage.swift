@@ -29,6 +29,9 @@ struct RemotePhotoImage: View {
     /// view reloads to pick up the real watermarked bytes. Passed in rather
     /// than read from `AppState`, like the rest of this view's inputs.
     var isProvisional: Bool = false
+    /// What `ProvisionalWatermark` draws while `isProvisional` —
+    /// `AppState.provisionalMarks`.
+    var provisionalMarks: ProvisionalWatermark.Marks = .fingerprint
     /// Pinch or double-tap to zoom, for a `.fit` photo shown on its own
     /// (photo detail and the in-app verification page). Only inside a
     /// `photoZoomLayer`, which draws the photo so it can grow across the
@@ -125,10 +128,10 @@ struct RemotePhotoImage: View {
                     Color.clear
                         .aspectRatio(image.size, contentMode: contentMode)
                         .anchorPreference(key: ZoomablePhotoPreferenceKey.self, value: .bounds) {
-                            ZoomablePhoto(image: image, isProvisional: isProvisional, markColor: provisionalMarkColor, restingBounds: $0)
+                            ZoomablePhoto(image: image, isProvisional: isProvisional, marks: provisionalMarks, markColor: provisionalMarkColor, restingBounds: $0)
                         }
                 } else {
-                    LoadedPhoto(image: image, contentMode: contentMode, isProvisional: isProvisional, markColor: provisionalMarkColor)
+                    LoadedPhoto(image: image, contentMode: contentMode, isProvisional: isProvisional, marks: provisionalMarks, markColor: provisionalMarkColor)
                 }
             } else if didFail {
                 placeholder {
@@ -281,6 +284,7 @@ struct LoadedPhoto: View {
     let image: UIImage
     var contentMode: ContentMode = .fit
     let isProvisional: Bool
+    var marks: ProvisionalWatermark.Marks = .fingerprint
     let markColor: PhotoWatermarker.MarkColor
 
     var body: some View {
@@ -291,7 +295,7 @@ struct LoadedPhoto: View {
             // is placed against the whole photo even where a `.fill`
             // thumbnail crops it — and zooms along with the photo.
             .overlay {
-                if isProvisional { ProvisionalWatermark(color: markColor) }
+                if isProvisional { ProvisionalWatermark(color: markColor, marks: marks) }
             }
     }
 }

@@ -107,7 +107,14 @@ struct FlowTriggersView: View {
         isCreatingSession = true
         Task {
             do {
-                verificationURL = try await UserProfileRepository.createIdentityVerificationSession()
+                switch try await UserProfileRepository.createIdentityVerificationSession() {
+                case .hosted(let url):
+                    verificationURL = url
+                case .demoApproved:
+                    // Only the demo account gets this, and it's never an
+                    // admin — but if it ever were, there's nothing to show.
+                    await appState.refreshVerificationStatus()
+                }
             } catch {
                 errorMessage = "Couldn't start verification — please try again."
                 Log.devMenu.error("Creating identity verification session failed: \(error, privacy: .public)")
