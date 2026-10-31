@@ -20,7 +20,7 @@ struct PrivacyEditSheet: View {
                 Text("Privacy")
                     .textStyle(DesignTokens.TextStyles.title)
                     .foregroundStyle(Theme.foreground)
-                Text("This setting controls who can see your photos and profile if they somehow gain access to the link.")
+                Text("This setting controls who can see your photos and profile if they gain access to the link.")
                     .textStyle(DesignTokens.TextStyles.body)
                     .foregroundStyle(Theme.mutedForeground)
                     .fixedSize(horizontal: false, vertical: true)
