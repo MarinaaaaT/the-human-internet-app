@@ -135,7 +135,10 @@ struct PhotoVerificationView: View {
                         } else {
                             // "Verified" is always the spiral, never a check.
                             BrandMark(size: DesignTokens.Size.icon)
-                            Text("This photo was taken by a real human!")
+                            // A failed owner lookup claims the lesser of the two.
+                            Text(owner?.isVerified == true
+                                 ? "This photo was taken by a real, identity verified human."
+                                 : "This photo was taken by a real human.")
                                 .textStyle(DesignTokens.TextStyles.title)
                                 .foregroundStyle(Theme.foreground)
                         }
