@@ -13,44 +13,40 @@ struct PrivacyEditSheet: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
-                SheetGrabber()
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
+            SheetGrabber()
 
-                VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
-                    Text("Privacy")
-                        .textStyle(DesignTokens.TextStyles.title)
-                        .foregroundStyle(Theme.foreground)
-                    Text("This setting controls who can see your photos and profile if they somehow gain access to the link.")
-                        .textStyle(DesignTokens.TextStyles.body)
-                        .foregroundStyle(Theme.mutedForeground)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s2) {
+                Text("Privacy")
+                    .textStyle(DesignTokens.TextStyles.title)
+                    .foregroundStyle(Theme.foreground)
+                Text("This setting controls who can see your photos and profile if they gain access to the link.")
+                    .textStyle(DesignTokens.TextStyles.body)
+                    .foregroundStyle(Theme.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-                VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
-                    ForEach(PrivacyLevel.allCases) { level in
-                        RadioRow(title: level.rawValue, subtitle: subtitle(for: level), isSelected: selection == level) {
-                            selection = level
-                        }
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
+                ForEach(PrivacyLevel.allCases) { level in
+                    RadioRow(title: level.rawValue, subtitle: subtitle(for: level), isSelected: selection == level) {
+                        selection = level
                     }
                 }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .textStyle(DesignTokens.TextStyles.label)
-                        .foregroundStyle(Theme.destructive)
-                }
-
-                PrimaryButton(title: isSaving ? "Saving…" : "Save", isEnabled: !isSaving) {
-                    save()
-                }
             }
-            .padding(DesignTokens.Space.s6)
-            .padding(.top, DesignTokens.Space.s4)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .foregroundStyle(Theme.destructive)
+            }
+
+            PrimaryButton(title: isSaving ? "Saving…" : "Save", isEnabled: !isSaving) {
+                save()
+            }
         }
-        .presentationDetents([.medium])
-        .presentationBackground(Theme.background)
+        .padding(DesignTokens.Space.s6)
+        .padding(.top, DesignTokens.Space.s4)
+        .fittedSheet()
         .onAppear { selection = appState.user.privacy }
     }
 

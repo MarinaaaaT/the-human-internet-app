@@ -23,6 +23,8 @@ struct PhotoSettingsView: View {
             Theme.background.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    privacyCallout
+
                     Toggle(isOn: watermarkBinding) {
                         LabelValue(label: "Visible fingerprint", value: "New photos are visually watermarked.")
                     }
@@ -49,6 +51,40 @@ struct PhotoSettingsView: View {
         }
     }
 
+    // MARK: - Privacy
+
+    /// What a shared link shows comes down to account privacy before
+    /// anything on this page, so it leads, and opens the page that changes it.
+    private var privacyCallout: some View {
+        NavigationLink(value: SettingsPage.account) {
+            HumanCard(radius: DesignTokens.Radius.md) {
+                HStack(spacing: DesignTokens.Space.s3) {
+                    Text(privacyCalloutText)
+                        .textStyle(DesignTokens.TextStyles.label)
+                        .foregroundStyle(Theme.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .symbolStyle(DesignTokens.TextStyles.label)
+                        .foregroundStyle(Theme.mutedForeground)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens Account settings.")
+        .padding(.horizontal, DesignTokens.Space.s6)
+        .padding(.vertical, DesignTokens.Space.s4)
+    }
+
+    private var privacyCalloutText: String {
+        switch appState.user.privacy {
+        case .humansOnly:
+            return "Your account privacy is “Humans Only” so shared links will hide your photo and username. Switch to public in account settings."
+        case .public_:
+            return "Your account privacy is public so anyone with the link can see your photo and profile information."
+        }
+    }
+
     // MARK: - Verification page
 
     /// Which name the verification page shows, backed by
@@ -72,32 +108,20 @@ struct PhotoSettingsView: View {
     private var verificationPageSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             LabelValue(
-                label: "Verification page",
-                value: "This information will show alongside your photo on verification pages and changes will apply to pages for previously taken photos."
+                label: "What do you want to share?",
+                value: "Settings below change what is visible when you share verification links to your photos. However, your username is irreversibly added to your photo data."
             )
             .padding(.horizontal, DesignTokens.Space.s6)
             .padding(.vertical, DesignTokens.Space.s4)
 
             nameRow
 
-            // Every saved handle is shown, so this summarises them and
+            // Every saved handle is shown, so this lists them all and
             // opens the page that edits them.
             NavigationLink(value: SettingsPage.profile) {
                 SettingsRowLabel(title: "Social media", value: socialSummary, systemImage: "chevron.right")
             }
             .buttonStyle(.plain)
-
-            if appState.user.privacy == .humansOnly {
-                Text("Your privacy is set to Humans Only, so your verification page hides your photo and username from signed-out visitors — and it hides this too. Switch to Public for any of it to show.")
-                    .textStyle(DesignTokens.TextStyles.label)
-                    .foregroundStyle(Theme.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(DesignTokens.Space.s4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.md, style: .continuous))
-                    .padding(.horizontal, DesignTokens.Space.s6)
-                    .padding(.vertical, DesignTokens.Space.s4)
-            }
         }
     }
 
@@ -108,17 +132,17 @@ struct PhotoSettingsView: View {
     private var nameRow: some View {
         if verifiedIdentity != nil {
             Menu {
-                Picker("Name", selection: nameBinding) {
+                Picker("Identity information", selection: nameBinding) {
                     ForEach(PageName.allCases) { name in
                         Text(name.title).tag(name)
                     }
                 }
             } label: {
-                SettingsRowLabel(title: "Name", value: currentName.title, systemImage: "chevron.up.chevron.down")
+                SettingsRowLabel(title: "Identity information", value: currentName.title, systemImage: "chevron.up.chevron.down")
             }
         } else {
             VStack(alignment: .leading, spacing: DesignTokens.Space.s1) {
-                LabelValue(label: "Name", value: PageName.username.title)
+                LabelValue(label: "Identity information", value: PageName.username.title)
                 if !isLoadingVerifiedIdentity {
                     Text("No verified name on file.")
                         .textStyle(DesignTokens.TextStyles.label)
@@ -144,9 +168,7 @@ struct PhotoSettingsView: View {
     private var socialSummary: String {
         let links = appState.user.socialLinks.items
         guard !links.isEmpty else { return "None yet. Add them in Profile settings." }
-        let shown = links.prefix(2).map { "\($0.platform.displayName): \($0.handle)" }
-        let more = links.count > shown.count ? ["+\(links.count - shown.count) more"] : []
-        return (shown + more).joined(separator: ", ")
+        return links.map { "\($0.platform.displayName): \($0.handle)" }.joined(separator: "\n")
     }
 
     private func errorText(_ message: String) -> some View {

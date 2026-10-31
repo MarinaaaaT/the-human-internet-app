@@ -59,48 +59,44 @@ struct ShareSheetView: View {
     ]
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(spacing: DesignTokens.Space.s6) {
-                SheetGrabber()
-                    .padding(.top, DesignTokens.Space.s2)
+        VStack(spacing: DesignTokens.Space.s6) {
+            SheetGrabber()
+                .padding(.top, DesignTokens.Space.s2)
 
-                Text("Share your human photo.")
-                    .textStyle(DesignTokens.TextStyles.title)
-                    .foregroundStyle(Theme.foreground)
+            Text("Share your human photo.")
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.foreground)
 
-                HStack(spacing: DesignTokens.Space.s4) {
-                    ForEach(options) { option in
-                        Button {
-                            switch option.kind {
-                            case .platform:
-                                beginPlatformShare()
-                            case .messages:
-                                beginMessagesShare()
-                            case .linkIntent(let intent):
-                                beginLinkIntentShare(intent)
-                            }
-                        } label: {
-                            optionLabel(for: option)
+            HStack(spacing: DesignTokens.Space.s4) {
+                ForEach(options) { option in
+                    Button {
+                        switch option.kind {
+                        case .platform:
+                            beginPlatformShare()
+                        case .messages:
+                            beginMessagesShare()
+                        case .linkIntent(let intent):
+                            beginLinkIntentShare(intent)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(isPreparingShare)
+                    } label: {
+                        optionLabel(for: option)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(isPreparingShare)
                 }
-                .overlay {
-                    if isPreparingShare {
-                        ProgressView().tint(Theme.foreground)
-                    }
-                }
-
-                copyLinkRow
-
-                Spacer()
             }
-            .padding(.horizontal, DesignTokens.Space.s6)
+            .overlay {
+                if isPreparingShare {
+                    ProgressView().tint(Theme.foreground)
+                }
+            }
+
+            copyLinkRow
         }
-        .presentationDetents([.fraction(0.4)])
-        .presentationBackground(Theme.background)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, DesignTokens.Space.s6)
+        .padding(.bottom, DesignTokens.Space.s6)
+        .fittedSheet()
         .sheet(isPresented: $showInstructions, onDismiss: {
             guard pendingShare else { return }
             pendingShare = false

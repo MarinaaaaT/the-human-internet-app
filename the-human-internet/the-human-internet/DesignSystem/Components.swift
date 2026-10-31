@@ -117,7 +117,9 @@ extension View {
     /// Presents this as a sheet exactly as tall as it is, so its text is
     /// never cut off: a fixed detent that fits the copy at one text size
     /// clips it at a larger one, or once the copy grows. Scrolls if it's
-    /// ever taller than the screen. For sheets that are just text.
+    /// ever taller than the screen. Every sheet that's a column of copy,
+    /// controls and buttons uses it; a `Spacer` in that column has nothing
+    /// to fill, so leave it out.
     func fittedSheet() -> some View {
         modifier(FittedSheet())
     }

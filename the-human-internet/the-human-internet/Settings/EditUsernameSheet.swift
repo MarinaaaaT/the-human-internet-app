@@ -13,35 +13,31 @@ struct EditUsernameSheet: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
-                SheetGrabber()
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
+            SheetGrabber()
 
-                Text("Edit username")
-                    .textStyle(DesignTokens.TextStyles.title)
-                    .foregroundStyle(Theme.foreground)
+            Text("Edit username")
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.foreground)
 
-                HITextField(placeholder: "New username here", text: $username)
+            HITextField(placeholder: "New username here", text: $username)
 
-                if let errorMessage {
-                    Text(errorMessage)
-                        .textStyle(DesignTokens.TextStyles.label)
-                        .foregroundStyle(Theme.destructive)
-                }
-
-                PrimaryButton(
-                    title: isSaving ? "Saving…" : "Save",
-                    isEnabled: !isSaving && !username.trimmingCharacters(in: .whitespaces).isEmpty
-                ) {
-                    save()
-                }
+            if let errorMessage {
+                Text(errorMessage)
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .foregroundStyle(Theme.destructive)
             }
-            .padding(DesignTokens.Space.s6)
-            .padding(.top, DesignTokens.Space.s4)
+
+            PrimaryButton(
+                title: isSaving ? "Saving…" : "Save",
+                isEnabled: !isSaving && !username.trimmingCharacters(in: .whitespaces).isEmpty
+            ) {
+                save()
+            }
         }
-        .presentationDetents([.fraction(0.35)])
-        .presentationBackground(Theme.background)
+        .padding(DesignTokens.Space.s6)
+        .padding(.top, DesignTokens.Space.s4)
+        .fittedSheet()
         .onAppear { username = appState.user.username }
     }
 

@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AuthenticationServices
 
 struct OnboardingFlowView: View {
     @Environment(AppState.self) private var appState
@@ -27,6 +28,9 @@ struct OnboardingFlowView: View {
                         if !appState.isOnboarded {
                             path = Self.resumePath(for: appState.user)
                         }
+                    } catch let error as ASAuthorizationError where error.code == .canceled {
+                        // Closing the Apple sheet is a "not now", not a failure.
+                        return
                     } catch {
                         authErrorMessage = error.localizedDescription
                     }
