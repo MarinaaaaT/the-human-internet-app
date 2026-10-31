@@ -7,8 +7,8 @@ import LocalAuthentication
 import SwiftUI
 
 /// Stands between a signed-in session and the app until `FaceIDCheck`
-/// passes. Shown right after Sign in with Apple (`OnboardingFlowView`) and on
-/// every cold launch that restores a session (`RootView`).
+/// passes. Shown on every cold launch that restores a session (`RootView`),
+/// never after a fresh Sign in with Apple.
 ///
 /// It asks for Face ID as soon as it appears, so the usual path is a glance
 /// and it's gone. Anything else leaves it up with the reason Face ID is
