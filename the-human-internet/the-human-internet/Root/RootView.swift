@@ -18,8 +18,8 @@ struct RootView: View {
     @State private var demoErrorMessage: String?
     /// A session was restored at launch and Face ID hasn't passed for it
     /// yet. Nothing of the account shows until it does — see
-    /// `FaceIDGateView`. A fresh Sign in with Apple has its own gate, in
-    /// `OnboardingFlowView`.
+    /// `FaceIDGateView`. Only ever set here: a fresh Sign in with Apple
+    /// isn't asked, since the person has just signed in.
     @State private var isFaceIDPending = false
 
     var body: some View {
