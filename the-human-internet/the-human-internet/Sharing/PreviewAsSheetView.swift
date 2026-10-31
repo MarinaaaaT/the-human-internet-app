@@ -19,36 +19,32 @@ struct PreviewAsSheetView: View {
     @State private var selection: PreviewAudience = .fellowHuman
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
-                SheetGrabber()
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
+            SheetGrabber()
 
-                Text("Preview as…")
-                    .textStyle(DesignTokens.TextStyles.title)
-                    .foregroundStyle(Theme.foreground)
+            Text("Preview as…")
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.foreground)
 
-                VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
-                    RadioRow(
-                        title: "A fellow human",
-                        subtitle: "Opens in app",
-                        isSelected: selection == .fellowHuman
-                    ) { selection = .fellowHuman }
+            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
+                RadioRow(
+                    title: "A fellow human",
+                    subtitle: "Opens in app",
+                    isSelected: selection == .fellowHuman
+                ) { selection = .fellowHuman }
 
-                    RadioRow(
-                        title: "An unknown internet lurker",
-                        subtitle: "Opens in webview",
-                        isSelected: selection == .unknownLurker
-                    ) { selection = .unknownLurker }
-                }
-
-                PrimaryButton(title: "Continue") { onContinue(selection) }
+                RadioRow(
+                    title: "An unknown internet lurker",
+                    subtitle: "Opens in webview",
+                    isSelected: selection == .unknownLurker
+                ) { selection = .unknownLurker }
             }
-            .padding(DesignTokens.Space.s6)
-            .padding(.top, DesignTokens.Space.s4)
+
+            PrimaryButton(title: "Continue") { onContinue(selection) }
         }
-        .presentationDetents([.fraction(0.4)])
-        .presentationBackground(Theme.background)
+        .padding(DesignTokens.Space.s6)
+        .padding(.top, DesignTokens.Space.s4)
+        .fittedSheet()
     }
 }
 

@@ -21,43 +21,37 @@ struct VerifiedNameSheet: View {
     let identity: VerifiedIdentity?
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
-                SheetGrabber()
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s4) {
+            SheetGrabber()
 
-                Text("Full name")
-                    .textStyle(DesignTokens.TextStyles.title)
-                    .foregroundStyle(Theme.foreground)
+            Text("Full name")
+                .textStyle(DesignTokens.TextStyles.title)
+                .foregroundStyle(Theme.foreground)
 
-                if let identity {
-                    paragraph("This is the name Stripe verified against your ID, so it can't be edited.")
+            if let identity {
+                paragraph("This is the name Stripe verified against your ID, so it can't be edited.")
 
-                    HumanCard(radius: DesignTokens.Radius.md) {
-                        HStack(alignment: .top, spacing: DesignTokens.Space.s2) {
-                            BrandMark(size: DesignTokens.Space.s4)
-                            // Exactly what a viewer sees on the verification
-                            // page — same `VerifiedIdentity`, same sentence.
-                            Text(identity.statement ?? identity.displayName)
-                                .textStyle(identity.statement == nil ? DesignTokens.TextStyles.title : DesignTokens.TextStyles.label)
-                                .foregroundStyle(identity.statement == nil ? Theme.foreground : Theme.mutedForeground)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 0)
-                        }
+                HumanCard(radius: DesignTokens.Radius.md) {
+                    HStack(alignment: .top, spacing: DesignTokens.Space.s2) {
+                        BrandMark(size: DesignTokens.Space.s4)
+                        // Exactly what a viewer sees on the verification
+                        // page — same `VerifiedIdentity`, same sentence.
+                        Text(identity.statement ?? identity.displayName)
+                            .textStyle(identity.statement == nil ? DesignTokens.TextStyles.title : DesignTokens.TextStyles.label)
+                            .foregroundStyle(identity.statement == nil ? Theme.foreground : Theme.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
                     }
-
-                    paragraph("Choose whether it shows alongside your photos in Photo settings.")
-                } else {
-                    paragraph("We don't have a verified name on file for your account. It's captured during identity verification — if yours predates that, it'll appear after your next verification.")
                 }
 
-                Spacer()
+                paragraph("Choose whether it shows alongside your photos in Photo settings.")
+            } else {
+                paragraph("We don't have a verified name on file for your account. It's captured during identity verification — if yours predates that, it'll appear after your next verification.")
             }
-            .padding(DesignTokens.Space.s6)
-            .padding(.top, DesignTokens.Space.s4)
         }
-        .presentationDetents([.medium])
-        .presentationBackground(Theme.background)
+        .padding(DesignTokens.Space.s6)
+        .padding(.top, DesignTokens.Space.s4)
+        .fittedSheet()
     }
 
     private func paragraph(_ text: String) -> some View {

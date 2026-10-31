@@ -67,47 +67,44 @@ private struct DeleteAccountConfirmationSheet: View {
     @State private var reauthorization = AppleReauthorization()
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
-                SheetGrabber()
+        VStack(alignment: .leading, spacing: DesignTokens.Space.s6) {
+            SheetGrabber()
 
-                Text("Delete your account?")
-                    .textStyle(DesignTokens.TextStyles.h3)
+            Text("Delete your account?")
+                .textStyle(DesignTokens.TextStyles.h3)
+                .foregroundStyle(Theme.foreground)
+
+            // One weight, so "permanently" is emphasised with colour and
+            // an underline rather than bold.
+            (Text("Although we save all photos to your camera roll, they are saved unverified. Deleting your account will ")
+                .foregroundStyle(Theme.mutedForeground)
+                + Text("permanently")
                     .foregroundStyle(Theme.foreground)
+                    .underline()
+                + Text(" delete signed, C2PA verified photos unless you have downloaded them. Would you like to proceed?")
+                    .foregroundStyle(Theme.mutedForeground))
+                .textStyle(DesignTokens.TextStyles.body)
+                .fixedSize(horizontal: false, vertical: true)
 
-                // One weight, so "permanently" is emphasised with colour and
-                // an underline rather than bold.
-                (Text("Although we save all photos to your camera roll, they are saved unverified. Deleting your account will ")
-                    .foregroundStyle(Theme.mutedForeground)
-                    + Text("permanently")
-                        .foregroundStyle(Theme.foreground)
-                        .underline()
-                    + Text(" delete signed, C2PA verified photos unless you have downloaded them. Would you like to proceed?")
-                        .foregroundStyle(Theme.mutedForeground))
-                    .textStyle(DesignTokens.TextStyles.body)
+            if let errorMessage {
+                Text(errorMessage)
+                    .textStyle(DesignTokens.TextStyles.label)
+                    .foregroundStyle(Theme.destructive)
                     .fixedSize(horizontal: false, vertical: true)
+            }
 
-                if let errorMessage {
-                    Text(errorMessage)
-                        .textStyle(DesignTokens.TextStyles.label)
-                        .foregroundStyle(Theme.destructive)
+            HStack(spacing: DesignTokens.Space.s3) {
+                SecondaryButton(title: "No", isEnabled: !isDeleting) {
+                    dismiss()
                 }
-
-                HStack(spacing: DesignTokens.Space.s3) {
-                    SecondaryButton(title: "No", isEnabled: !isDeleting) {
-                        dismiss()
-                    }
-                    CTAButton(title: isDeleting ? "Deleting…" : "Yes", role: .destructive, isEnabled: !isDeleting) {
-                        deleteAccount()
-                    }
+                CTAButton(title: isDeleting ? "Deleting…" : "Yes", role: .destructive, isEnabled: !isDeleting) {
+                    deleteAccount()
                 }
             }
-            .padding(DesignTokens.Space.s6)
-            .padding(.top, DesignTokens.Space.s4)
         }
-        .presentationDetents([.medium])
-        .presentationBackground(Theme.background)
+        .padding(DesignTokens.Space.s6)
+        .padding(.top, DesignTokens.Space.s4)
+        .fittedSheet()
         // Swiping away mid-delete wouldn't stop it, only hide whether it
         // worked.
         .interactiveDismissDisabled(isDeleting)
