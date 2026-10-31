@@ -249,13 +249,16 @@ final class ZoomingScrollView: UIScrollView, UIScrollViewDelegate {
     private func updateInsets() {
         let rest = settledRect ?? restingRect
         let size = zoomedView.frame.size
-        let left = Self.leadingInset(length: size.width, viewport: bounds.width, restingCenter: rest.midX)
-        let top = Self.leadingInset(length: size.height, viewport: bounds.height, restingCenter: rest.midY)
+        let left = Self.leadingInset(length: size.width, viewport: bounds.width, restingCenter: rest.midX, restingLength: rest.width)
+        let top = Self.leadingInset(length: size.height, viewport: bounds.height, restingCenter: rest.midY, restingLength: rest.height)
+        // At 1x nothing pans, even a photo running off the screen: a drag on
+        // it scrolls the page it rests in.
+        let floor: CGFloat = zoomScale > minimumZoomScale ? 0 : -.greatestFiniteMagnitude
         contentInset = UIEdgeInsets(
             top: top,
             left: left,
-            bottom: max(0, bounds.height - size.height - top),
-            right: max(0, bounds.width - size.width - left)
+            bottom: max(floor, bounds.height - size.height - top),
+            right: max(floor, bounds.width - size.width - left)
         )
     }
 
@@ -267,8 +270,18 @@ final class ZoomingScrollView: UIScrollView, UIScrollViewDelegate {
     /// centred on where it rests at 1x, so it grows out from its card; kept
     /// inside the viewport once that would run it off an edge; and 0 once
     /// it's longer than the viewport, so every part of it can be panned to.
-    static func leadingInset(length: CGFloat, viewport: CGFloat, restingCenter: CGFloat) -> CGFloat {
-        min(max(restingCenter - length / 2, 0), max(viewport - length, 0))
+    ///
+    /// A photo resting partly outside the viewport — taller than the space
+    /// under the Close bar, as on an iPad, or scrolled part way out of it —
+    /// stays exactly where it was laid out at 1x, then eases onto those
+    /// bounds as it grows, so nothing jumps. Pulling it inside at 1x painted
+    /// it over the page above it.
+    static func leadingInset(length: CGFloat, viewport: CGFloat, restingCenter: CGFloat, restingLength: CGFloat) -> CGFloat {
+        let restingStart = restingCenter - restingLength / 2
+        let growth = max(length - restingLength, 0)
+        let lower = min(restingStart + growth, 0)
+        let upper = max(viewport - length, 0, restingStart - growth)
+        return min(max(restingCenter - length / 2, lower), upper)
     }
 
     /// Zooms in around the tapped point, or back out to 1x if already zoomed.
