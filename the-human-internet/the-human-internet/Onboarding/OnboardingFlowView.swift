@@ -11,6 +11,10 @@ struct OnboardingFlowView: View {
     @State private var path: [OnboardingStep] = []
     @State private var authService = AppleAuthService()
     @State private var authErrorMessage: String?
+    /// Sign in with Apple succeeded and Face ID hasn't passed yet. Apple
+    /// may have approved that sign-in with a passcode, so it doesn't show
+    /// a real person is logging in on its own.
+    @State private var isFaceIDPending = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -20,14 +24,10 @@ struct OnboardingFlowView: View {
                 Task {
                     do {
                         try await authService.handle(result)
-                        let userID = try await supabase.auth.session.user.id
-                        try await appState.hydrate(userID: userID)
-                        // A returning, already-onboarded user: `appState.isOnboarded`
-                        // is now true, so RootView swaps straight to MainTabView —
-                        // no need to push anything here.
-                        if !appState.isOnboarded {
-                            path = Self.resumePath(for: appState.user)
-                        }
+                        // Face ID before anything of the account loads:
+                        // hydrating can flip `isOnboarded`, which swaps
+                        // this whole view for MainTabView.
+                        isFaceIDPending = true
                     } catch let error as ASAuthorizationError where error.code == .canceled {
                         // Closing the Apple sheet is a "not now", not a failure.
                         return
@@ -74,6 +74,15 @@ struct OnboardingFlowView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $isFaceIDPending) {
+            FaceIDGateView {
+                isFaceIDPending = false
+                finishSignIn()
+            } onLogOut: {
+                try await appState.signOut(keepingPendingUploads: true)
+                isFaceIDPending = false
+            }
+        }
         .onAppear {
             // If we already resolved a mid-onboarding profile (e.g. RootView found a
             // signed-in-but-incomplete user), jump straight to where they left off
@@ -92,6 +101,24 @@ struct OnboardingFlowView: View {
             Button("OK") { authErrorMessage = nil }
         } message: {
             Text(authErrorMessage ?? "")
+        }
+    }
+
+    /// The rest of signing in, once Face ID has passed.
+    private func finishSignIn() {
+        Task {
+            do {
+                let userID = try await supabase.auth.session.user.id
+                try await appState.hydrate(userID: userID)
+                // A returning, already-onboarded user: `appState.isOnboarded`
+                // is now true, so RootView swaps straight to MainTabView —
+                // no need to push anything here.
+                if !appState.isOnboarded {
+                    path = Self.resumePath(for: appState.user)
+                }
+            } catch {
+                authErrorMessage = error.localizedDescription
+            }
         }
     }
 
