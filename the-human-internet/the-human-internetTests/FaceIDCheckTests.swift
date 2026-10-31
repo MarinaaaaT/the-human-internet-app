@@ -65,10 +65,19 @@ struct FaceIDCheckTests {
         nil, .cancelled, .interrupted, .failed, .lockedOut, .notEnrolled, .notAllowed, .unavailable,
     ]
 
-    @Test func everyOutcomeExplainsWhyFaceIDIsNeeded() {
-        for outcome in Self.notPassed where outcome != .lockedOut {
+    @Test func askingAndCancellingInviteTheUserToStaySignedIn() {
+        for outcome: FaceIDOutcome? in [nil, .cancelled, .interrupted] {
             let copy = FaceIDGateCopy(outcome: outcome, biometryType: .faceID, device: "iPhone")
-            #expect(copy.message.contains("shows a real person is logging in"), "\(String(describing: outcome))")
+            #expect(copy.title == "Are you still there?")
+            #expect(copy.message == "Stay signed in by helping us check it's still you with Face ID.")
+            #expect(copy.action == .check(title: "Use Face ID"))
+        }
+    }
+
+    @Test func everyProblemExplainsWhyFaceIDIsNeeded() {
+        for outcome: FaceIDOutcome in [.failed, .notEnrolled, .notAllowed, .unavailable] {
+            let copy = FaceIDGateCopy(outcome: outcome, biometryType: .faceID, device: "iPhone")
+            #expect(copy.message.contains("shows a real person is logging in"), "\(outcome)")
         }
     }
 

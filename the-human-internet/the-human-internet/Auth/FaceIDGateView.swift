@@ -152,8 +152,8 @@ struct FaceIDGateCopy: Equatable {
         let why = "You sign in with \(name), which shows a real person is logging in."
         switch outcome {
         case nil, .passed, .cancelled, .interrupted:
-            title = "Show you're human."
-            message = why
+            title = "Are you still there?"
+            message = "Stay signed in by helping us check it's still you with \(name)."
             action = .check(title: "Use \(name)")
         case .failed:
             title = "\(name) didn't recognize you."
