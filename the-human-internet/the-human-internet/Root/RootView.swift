@@ -16,6 +16,11 @@ struct RootView: View {
     /// done, so restoring the previous account can't land on top of it.
     @State private var isDemoEntryPending = false
     @State private var demoErrorMessage: String?
+    /// A session was restored at launch and Face ID hasn't passed for it
+    /// yet. Nothing of the account shows until it does — see
+    /// `FaceIDGateView`. A fresh Sign in with Apple has its own gate, in
+    /// `OnboardingFlowView`.
+    @State private var isFaceIDPending = false
 
     var body: some View {
         Group {
@@ -26,6 +31,13 @@ struct RootView: View {
                     Theme.background.ignoresSafeArea()
                     ProgressView()
                         .tint(Theme.foreground)
+                }
+            } else if isFaceIDPending {
+                FaceIDGateView {
+                    isFaceIDPending = false
+                } onLogOut: {
+                    try await appState.signOut(keepingPendingUploads: true)
+                    isFaceIDPending = false
                 }
             } else if appState.isOnboarded {
                 MainTabView()
@@ -57,7 +69,7 @@ struct RootView: View {
             // once signed in), so this is naturally inert on Welcome/onboarding
             // screens for everyone but an already-onboarded admin.
             ShakeDetector {
-                guard appState.isAdmin else { return }
+                guard appState.isAdmin, !isFaceIDPending else { return }
                 showDeveloperMenu = true
             }
         )
@@ -77,8 +89,10 @@ struct RootView: View {
         } message: {
             Text(demoErrorMessage ?? "")
         }
+        // Held back while the Face ID gate is up, so a photo link that cold
+        // launched the app opens once it passes rather than over the gate.
         .fullScreenCover(item: Binding(
-            get: { appState.deepLinkedPhoto },
+            get: { isFaceIDPending ? nil : appState.deepLinkedPhoto },
             set: { appState.deepLinkedPhoto = $0 }
         )) { deepLink in
             PhotoVerificationView(photoID: deepLink.id)
@@ -95,6 +109,12 @@ struct RootView: View {
                 case .initialSession:
                     if let userID = state.session?.user.id {
                         await resolveProfile(userID: userID)
+                        // Every cold launch into a signed-in account asks
+                        // for Face ID, after hydrating so it's known whether
+                        // this is the demo account — which never signed in
+                        // with Apple or Face ID, and says on every page
+                        // that it proves nothing about who's holding it.
+                        isFaceIDPending = !appState.isDemoAccount
                     }
                     isRestoringSession = false
                     if isDemoEntryPending {
@@ -105,6 +125,7 @@ struct RootView: View {
                     // Ignore before the initial restore finishes — there's no prior
                     // session to have been revoked yet, and appState is already fresh.
                     guard !isRestoringSession else { continue }
+                    isFaceIDPending = false
                     appState.handleSessionInvalidated()
                 default:
                     break
@@ -141,6 +162,10 @@ struct RootView: View {
         Task {
             do {
                 try await appState.enterDemoAccount()
+                // The demo session has replaced the one the gate was
+                // guarding. Only now: if entering fails, that account is
+                // still signed in, so the gate has to stay up.
+                isFaceIDPending = false
             } catch {
                 Log.auth.error("Entering the demo account failed: \(error, privacy: .public)")
                 demoErrorMessage = "Please try the link again."

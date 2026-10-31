@@ -245,8 +245,13 @@ final class AppState {
     /// network call, so the local cleanup still happens even if signing out
     /// of Supabase fails — so the next person on a shared device can't
     /// recover them.
-    func signOut() async throws {
-        if let userID = user.id {
+    ///
+    /// Except from the Face ID gate (`keepingPendingUploads`), where logging
+    /// out is how someone who can't pass Face ID right now gets back to
+    /// Welcome — most likely the owner without Face ID to hand, so their
+    /// captures wait on disk for them like after an involuntary sign-out.
+    func signOut(keepingPendingUploads: Bool = false) async throws {
+        if !keepingPendingUploads, let userID = user.id {
             await PhotoUploadQueue.pruneOnSignOut(userID: userID)
         }
         try await supabase.auth.signOut()
