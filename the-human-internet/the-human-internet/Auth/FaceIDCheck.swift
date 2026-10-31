@@ -5,12 +5,14 @@
 
 import LocalAuthentication
 
-/// The Face ID check run on every cold launch into a stored session — see
-/// `FaceIDGateView`, which is how `RootView` reaches it. Not after a fresh
-/// Sign in with Apple, which the person has just done.
+/// The Face ID check that's part of signing in: right after Sign in with
+/// Apple, over the screen it led to (`AppState.checkFaceIDAfterSignIn`), and
+/// on every cold launch into a stored session (`FaceIDGateView`).
 ///
-/// Sign in with Apple lets Apple pick how it's approved — Face ID, Touch ID
-/// or the device passcode. This asks for biometrics and nothing else.
+/// Sign in with Apple alone lets Apple pick how it's approved — Face ID,
+/// Touch ID or the device passcode — so it can't back the website's claim
+/// that signing in shows a real person is logging in. This can: it asks for
+/// biometrics and nothing else.
 enum FaceIDCheck {
     /// Biometrics only. `.deviceOwnerAuthentication` would fall back to the
     /// passcode, which is exactly what this check exists to rule out.

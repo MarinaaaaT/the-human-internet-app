@@ -67,7 +67,7 @@ struct FaceIDCheckTests {
 
     @Test func askingAndCancellingInviteTheUserToStaySignedIn() {
         for outcome: FaceIDOutcome? in [nil, .cancelled, .interrupted] {
-            let copy = FaceIDGateCopy(outcome: outcome, biometryType: .faceID, device: "iPhone")
+            let copy = FaceIDGateCopy(moment: .relaunch, outcome: outcome, biometryType: .faceID, device: "iPhone")
             #expect(copy.title == "Are you still there?")
             #expect(copy.message == "Stay signed in by helping us check it's still you with Face ID.")
             #expect(copy.action == .check(title: "Use Face ID"))
@@ -76,22 +76,45 @@ struct FaceIDCheckTests {
 
     @Test func everyProblemExplainsWhyFaceIDIsNeeded() {
         for outcome: FaceIDOutcome in [.failed, .notEnrolled, .notAllowed, .unavailable] {
-            let copy = FaceIDGateCopy(outcome: outcome, biometryType: .faceID, device: "iPhone")
+            let copy = FaceIDGateCopy(moment: .relaunch, outcome: outcome, biometryType: .faceID, device: "iPhone")
             #expect(copy.message.contains("shows a real person is logging in"), "\(outcome)")
         }
     }
 
     @Test func onlyADeviceWithoutBiometricsHasNothingToTry() {
         for outcome in Self.notPassed {
-            let copy = FaceIDGateCopy(outcome: outcome, biometryType: .faceID, device: "iPhone")
+            let copy = FaceIDGateCopy(moment: .relaunch, outcome: outcome, biometryType: .faceID, device: "iPhone")
             #expect((copy.action == nil) == (outcome == .unavailable), "\(String(describing: outcome))")
         }
-        #expect(FaceIDGateCopy(outcome: .notAllowed, biometryType: .faceID, device: "iPhone").action == .openSettings)
+        #expect(FaceIDGateCopy(moment: .relaunch, outcome: .notAllowed, biometryType: .faceID, device: "iPhone").action == .openSettings)
+    }
+
+    // MARK: After Sign in with Apple
+
+    @Test func afterSignInEveryStateSaysFaceIDIsRequired() {
+        for outcome in Self.notPassed {
+            let copy = FaceIDGateCopy(moment: .signIn, outcome: outcome, biometryType: .faceID, device: "iPhone")
+            #expect(copy.title == "Face ID required", "\(String(describing: outcome))")
+            #expect(copy.message.hasPrefix("To prove you're a real person, we require a biometric check after signing in."), "\(String(describing: outcome))")
+        }
+        let cancelled = FaceIDGateCopy(moment: .signUp, outcome: .cancelled, biometryType: .faceID, device: "iPhone")
+        #expect(cancelled.message == "To prove you're a real person, we require a biometric check after signing up.")
+        #expect(cancelled.action == .check(title: "Use Face ID"))
+    }
+
+    @Test func theWayOnDoesNotDependOnTheMoment() {
+        for outcome in Self.notPassed {
+            let actions = [FaceIDGate.Moment.relaunch, .signIn, .signUp].map {
+                FaceIDGateCopy(moment: $0, outcome: outcome, biometryType: .faceID, device: "iPhone").action
+            }
+            #expect(Set(actions.map { $0?.title }).count == 1, "\(String(describing: outcome))")
+        }
     }
 
     @Test func touchIDDevicesAreToldTouchID() {
-        let copy = FaceIDGateCopy(outcome: .failed, biometryType: .touchID, device: "iPhone")
+        let copy = FaceIDGateCopy(moment: .relaunch, outcome: .failed, biometryType: .touchID, device: "iPhone")
         #expect(copy.title == "Touch ID didn't recognize you.")
         #expect(!copy.message.contains("Face ID"))
+        #expect(FaceIDGateCopy(moment: .signUp, outcome: .cancelled, biometryType: .touchID, device: "iPhone").title == "Touch ID required")
     }
 }
