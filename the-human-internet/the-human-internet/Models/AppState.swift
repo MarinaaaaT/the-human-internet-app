@@ -184,6 +184,17 @@ final class AppState {
     /// rebuilds onboarding from scratch once it's done.
     var isEnteringDemoAccount = false
 
+    /// Up while Face ID still has to pass for this session: `RootView`
+    /// shows `FaceIDGateView` in place of everything. Set on a cold launch
+    /// into a stored session, and when the check after Sign in with Apple
+    /// doesn't pass (`checkFaceIDAfterSignIn`).
+    var faceIDGate: FaceIDGate?
+
+    /// While the Face ID prompt after Sign in with Apple is up, over the
+    /// screen sign-in led to. The camera waits for it before asking for
+    /// access: two system prompts at once can cancel the Face ID one.
+    var isCheckingFaceIDAfterSignIn = false
+
     /// What a provisional photo has drawn over it until its own marks are
     /// burned in: the fingerprint unless Photo Fingerprint is off, and
     /// "DEMO" on the demo account whatever that switch says.
@@ -283,6 +294,23 @@ final class AppState {
         isDemoAccount = false
         featureFlags = [:]
         isWatermarkEnabled = true
+        faceIDGate = nil
+        isCheckingFaceIDAfterSignIn = false
+    }
+
+    /// The Face ID check after Sign in with Apple. No screen of its own:
+    /// the system prompt appears over wherever sign-in led — the profile
+    /// step, or the app for a returning user — so passing it shows nothing
+    /// at all. Only when it doesn't pass does the gate go up, saying why.
+    ///
+    /// The demo account never gets here: it doesn't sign in with Apple.
+    @MainActor
+    func checkFaceIDAfterSignIn(_ moment: FaceIDGate.Moment) async {
+        defer { isCheckingFaceIDAfterSignIn = false }
+        let outcome = await FaceIDCheck.run()
+        guard outcome != .passed else { return }
+        Log.auth.info("Face ID after sign-in didn't pass: \(String(describing: outcome), privacy: .public)")
+        faceIDGate = FaceIDGate(moment: moment, outcome: outcome)
     }
 
     /// The demo link: resets the demo account server-side (everything but

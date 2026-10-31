@@ -53,7 +53,10 @@ struct CameraCaptureView: View {
         } message: {
             Text(errorMessage ?? "Please try again.")
         }
-        .task {
+        // Held while Face ID is asking after sign-in, which a returning user
+        // lands here for: a camera prompt on top would cancel it.
+        .task(id: appState.isCheckingFaceIDAfterSignIn) {
+            guard !appState.isCheckingFaceIDAfterSignIn else { return }
             await cameraSession.requestAuthorizationIfNeeded()
             // The await hops off the main actor, so a quick switch away can
             // run `onDisappear`'s stop() before this resumes. SwiftUI cancels

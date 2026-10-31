@@ -20,18 +20,27 @@ struct OnboardingFlowView: View {
                 Task {
                     do {
                         try await authService.handle(result)
+                        // Before hydrating, which can swap in MainTabView
+                        // and its camera for a returning user.
+                        appState.isCheckingFaceIDAfterSignIn = true
                         let userID = try await supabase.auth.session.user.id
                         try await appState.hydrate(userID: userID)
                         // A returning, already-onboarded user: `appState.isOnboarded`
                         // is now true, so RootView swaps straight to MainTabView —
                         // no need to push anything here.
+                        let moment: FaceIDGate.Moment = appState.isOnboarded ? .signIn : .signUp
                         if !appState.isOnboarded {
                             path = Self.resumePath(for: appState.user)
                         }
+                        // Over the screen that just appeared. This view may
+                        // be gone by the time it answers; the gate, if it
+                        // comes to that, is RootView's.
+                        await appState.checkFaceIDAfterSignIn(moment)
                     } catch let error as ASAuthorizationError where error.code == .canceled {
                         // Closing the Apple sheet is a "not now", not a failure.
                         return
                     } catch {
+                        appState.isCheckingFaceIDAfterSignIn = false
                         authErrorMessage = error.localizedDescription
                     }
                 }
