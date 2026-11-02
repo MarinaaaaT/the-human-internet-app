@@ -52,6 +52,7 @@ Xcode 16's synced-folder groups mean any `.swift` file dropped into the right su
 ## Stack
 
 - SwiftUI, iOS 18.5 deployment target, Swift 5
+- **iPhone only** (`TARGETED_DEVICE_FAMILY = 1` on every target, since 2026-11-01). It ran on iPad too until then, without anyone having designed for it; iPad support is planned for later. On an iPad the App Store still offers it as an iPhone app in compatibility mode.
 - Supabase (project **"The Human Internet"**, id `xpjkgngifffzdaikjakw`, org has more) — Auth, Postgres, Storage
 - Sign in with Apple (`AuthenticationServices` + `supabase.auth.signInWithIdToken`) — the *only* auth method — plus a biometrics-only Face ID check (`LocalAuthentication`) after every Sign in with Apple and every cold launch into a stored session; see "Face ID at sign-in" below
 - `AVFoundation` for camera capture; `Photos` (add-only) for the device-library copy; `WebKit` for the Stripe Identity flow and the web preview; [`c2pa-swift`](https://github.com/contentauth/c2pa-swift) (SPM, product `C2PA`) for content-credential signing — pre-1.0, ships a prebuilt XCFramework so there's no Rust toolchain to install
