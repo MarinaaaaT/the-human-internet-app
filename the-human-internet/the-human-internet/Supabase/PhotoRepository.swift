@@ -71,6 +71,32 @@ enum PhotoRepository {
         return rows.first
     }
 
+    /// Reports someone else's photo, for review by hand. Write-only: RLS on
+    /// `photo_reports` allows inserting a report as yourself about a photo
+    /// that isn't yours, and nothing else — not even reading it back.
+    ///
+    /// One report per person per photo. A second one is a unique violation
+    /// (23505), which counts as done: the first is already in.
+    static func report(photoID: UUID, reason: PhotoReportReason) async throws {
+        struct Report: Encodable {
+            let photoID: String
+            let reason: String
+
+            enum CodingKeys: String, CodingKey {
+                case photoID = "photo_id"
+                case reason
+            }
+        }
+        do {
+            try await supabase
+                .from("photo_reports")
+                .insert(Report(photoID: photoID.uuidString.lowercased(), reason: reason.rawValue))
+                .execute()
+        } catch let error as PostgrestError where error.code == "23505" {
+            return
+        }
+    }
+
     static func fetchAll(userID: UUID) async throws -> [VerifiedPhoto] {
         try await supabase
             .from("photos")

@@ -417,6 +417,41 @@ struct PhotoOwnerProfile: Decodable, Hashable {
     }
 }
 
+/// Why someone reported a photo — `photo_reports.reason`, a `text` column
+/// with a CHECK constraint (the backend's `2026-11-01_photo_reports.sql`).
+/// Unlike the enums above it's only ever written, never decoded, so drift
+/// one way costs nothing and the other way fails the report:
+/// `PhotoReportTests` pins the two lists together.
+enum PhotoReportReason: String, CaseIterable, Identifiable {
+    case notReal = "not_real"
+    case sexual
+    case violent
+    case harassment
+    case privacy
+    case other
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .notReal: "It isn't a real photo"
+        case .sexual: "Nudity or sexual content"
+        case .violent: "Violence or graphic content"
+        case .harassment: "Harassment or hate"
+        case .privacy: "It invades my privacy"
+        case .other: "Something else"
+        }
+    }
+
+    var subtitle: String? {
+        switch self {
+        case .notReal: "AI-generated, or not taken by this person."
+        case .privacy: "It shows me, or my private information, without my consent."
+        default: nil
+        }
+    }
+}
+
 /// Maps 1:1 to a row in the `users` table, minus the columns the client has
 /// no business writing. Deliberately has no SSN field: identity verification
 /// runs through Stripe Identity (document + selfie checks only), which never
