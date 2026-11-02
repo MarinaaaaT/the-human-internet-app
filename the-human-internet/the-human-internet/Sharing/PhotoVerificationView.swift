@@ -32,6 +32,7 @@ struct PhotoVerificationView: View {
     let photoID: UUID
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @State private var photo: VerifiedPhoto?
     /// Loaded alongside the photo. Stays nil if the owner lookup fails,
     /// which costs the caption and the handles but still shows the photo and
@@ -39,6 +40,7 @@ struct PhotoVerificationView: View {
     @State private var owner: PhotoOwnerProfile?
     @State private var isLoading = true
     @State private var showLearnMore = false
+    @State private var showReport = false
     /// The photo is zoomed in, and the page around it has faded out to let
     /// it take the whole screen.
     @State private var isPhotoZoomed = false
@@ -86,6 +88,9 @@ struct PhotoVerificationView: View {
         .sheet(isPresented: $showLearnMore) {
             PhotoVerificationInfoSheet()
         }
+        .sheet(isPresented: $showReport) {
+            ReportPhotoSheet(photoID: photoID)
+        }
         .alert(
             "Couldn't download photo",
             isPresented: Binding(get: { downloadError != nil }, set: { if !$0 { downloadError = nil } })
@@ -112,6 +117,16 @@ struct PhotoVerificationView: View {
             }
             .accessibilityLabel("Close")
             Spacer()
+            if isReportable {
+                Button {
+                    showReport = true
+                } label: {
+                    Image(systemName: "flag")
+                        .symbolStyle(DesignTokens.TextStyles.title)
+                        .ctaIcon()
+                }
+                .accessibilityLabel("Report photo")
+            }
         }
         .padding(.horizontal, DesignTokens.Space.s6)
         .padding(.top, DesignTokens.Space.s3)
@@ -119,6 +134,13 @@ struct PhotoVerificationView: View {
         .background(Theme.background.ignoresSafeArea())
         // A zoomed photo is zoomed back out first.
         .fadesWhilePhotoZoomed(isPhotoZoomed)
+    }
+
+    /// Someone else's photo. Photo detail's Preview opens this page on your
+    /// own, where there's nothing to report — delete it instead.
+    private var isReportable: Bool {
+        guard let photo, let userID = appState.user.id else { return false }
+        return photo.userID != userID
     }
 
     private func content(for photo: VerifiedPhoto) -> some View {
@@ -327,5 +349,6 @@ struct PhotoVerificationView: View {
 #Preview {
     Color.clear.fullScreenCover(isPresented: .constant(true)) {
         PhotoVerificationView(photoID: UUID())
+            .environment(AppState())
     }
 }
